@@ -6,7 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- *
+ * <p>A TiledTileLayer represents a tile layer. It corresponds to a
+ * &lt;layer&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledTileLayer extends TiledLayer {

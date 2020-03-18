@@ -1,7 +1,8 @@
 package org.tiledreader;
 
 /**
- *
+ * <p>A TiledImageLayer represents an image layer. It corresponds to an
+ * &lt;imagelayer&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledImageLayer extends TiledLayer {
@@ -14,6 +15,10 @@ public class TiledImageLayer extends TiledLayer {
         this.image = image;
     }
     
+    /**
+     * Returns this image layer's image.
+     * @return This image layer's image
+     */
     public final TiledImage getImage() {
         return image;
     }

@@ -5,7 +5,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- *
+ * <p>A TiledGroupLayer represents a group layer. It corresponds to a
+ * &lt;group&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledGroupLayer extends TiledLayer {
@@ -26,8 +27,8 @@ public class TiledGroupLayer extends TiledLayer {
     }
     
     /**
-     * Returns an unmodifiable List view of the layers in this group layer,
-     * ordered from back to front.
+     * Returns an unmodifiable List view of the layers contained in this group
+     * layer, ordered from back to front.
      * @return The layers in this group layer
      */
     public final List<TiledLayer> getChildren() {

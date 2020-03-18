@@ -3,9 +3,9 @@ package org.tiledreader;
 import java.awt.Color;
 
 /**
- * <p>Note that Cell2D does not support image data embedded directly in TMX/TSX
- * files. As of Tiled version 1.3.2, however, it is not possible to embed image
- * data in files using the Tiled editor.</p>
+ * <p>A TiledImage represents the image associated with a single-image tileset,
+ * a tile in an image collection tileset, or an image layer. It corresponds to
+ * an &lt;image&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledImage {
@@ -22,10 +22,20 @@ public class TiledImage {
         this.height = height;
     }
     
+    /**
+     * Returns the relative path (from the program's working directory) to this
+     * image's file.
+     * @return The relative path to this image's file
+     */
     public final String getSource() {
         return source;
     }
     
+    /**
+     * Returns the color that is treated as transparent in this image, or null
+     * if none was specified.
+     * @return This image's transparent color
+     */
     public final Color getTransColor() {
         return transColor;
     }

@@ -108,10 +108,30 @@ public class TiledObject {
         return text;
     }
     
+    /**
+     * Returns an unmodifiable Map view of this object's custom properties. Each
+     * key in the Map is the name of a property, and its corresponding value is
+     * the value of that property. The type of the value object corresponds
+     * to the type of the property: String for a string property, Integer for an
+     * int, Float for a float, Boolean for a bool, <code>java.awt.Color</code>
+     * for a color, and <code>java.io.File</code> for a file.
+     * @return This object's custom properties
+     */
     public final Map<String,Object> getProperties() {
         return properties;
     }
     
+    /**
+     * Returns the value of this object's custom property with the specified
+     * name, or null if no such property was specified. The type of the returned
+     * value corresponds to the type of the property: String for a string
+     * property, Integer for an int, Float for a float, Boolean for a bool,
+     * <code>java.awt.Color</code> for a color, and <code>java.io.File</code>
+     * for a file.
+     * @param name The name of the property whose value is to be returned
+     * @return The value of this object's custom property with the specified
+     * name
+     */
     public final Object getProperty(String name) {
         return properties.get(name);
     }

@@ -5,7 +5,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- *
+ * <p>A TiledObjectLayer represents an object layer. It corresponds to an
+ * &lt;objectgroup&gt; tag embedded in a &lt;map&gt; or &lt;group&gt; tag in a
+ * Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledObjectLayer extends TiledLayer {
@@ -21,17 +23,17 @@ public class TiledObjectLayer extends TiledLayer {
     }
     
     /**
-     * Returns the color used to display the objects in this group in Tiled, or
-     * null if none was specified.
-     * @return The color used to display the objects in this group
+     * Returns the color used to display the objects in this object layer in
+     * Tiled, or null if none was specified.
+     * @return The color used to display the objects in this object layer
      */
     public final Color getColor() {
         return color;
     }
     
     /**
-     * Returns an unmodifiable List view of the objects in this group.
-     * @return The objects in this group
+     * Returns an unmodifiable List view of the objects in this object layer.
+     * @return The objects in this object layer
      */
     public final List<TiledObject> getObjects() {
         return objects;

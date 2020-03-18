@@ -35,9 +35,15 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 /**
- * <p>Note that TiledReader does not support image data embedded directly in
- * TMX/TSX files. As of Tiled version 1.3.3, however, it is not possible to
- * embed image data in files using the Tiled editor.</p>
+ * <p>TiledReader does not support image data embedded directly in TMX/TSX
+ * files. As of Tiled version 1.3.3, however, it is not possible to embed image
+ * data in files using the Tiled editor.</p>
+ * 
+ * <p>TiledReader also ignores information in Tiled files pertaining to
+ * deprecated or unsupported features of Tiled. These include the x and y
+ * attributes of tile layers, object layers, and image layers (not to be
+ * confused with the rendering x and y offsets, which are supported), as well as
+ * the width and height attributes of object layers.</p>
  * @author Alex Heyman
  */
 public final class TiledReader {
