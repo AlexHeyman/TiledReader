@@ -122,7 +122,8 @@ public class TiledTile {
     
     /**
      * Returns an unmodifiable List view of the objects that specify this tile's
-     * collision properties, or null if no such objects were specified.
+     * collision properties. The list will be empty if no such objects were
+     * specified.
      * @return The objects that specify this tile's collision properties
      */
     public final List<TiledObject> getCollisionObjects() {

@@ -6,23 +6,39 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * <p>A TiledMap represents an entire map made with Tiled. It corresponds to a
+ * &lt;map&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledMap {
     
+    /**
+     * <p>Represents an orientation that a Tiled map can have.</p>
+     */
     public static enum Orientation {
         ORTHOGONAL, ISOMETRIC, STAGGERED, HEXAGONAL
     }
     
+    /**
+     * <p>Represents an order in which the tiles in a Tiled map's tile layers
+     * can be rendered.</p>
+     */
     public static enum RenderOrder {
         RIGHT_DOWN, RIGHT_UP, LEFT_DOWN, LEFT_UP
     }
     
+    /**
+     * <p>Represents an axis that can be staggered in a Tiled map with a
+     * staggered or hexagonal orientation.</p>
+     */
     public static enum StaggerAxis {
         X, Y
     }
     
+    /**
+     * <p>Represents a category of indices that can be shifted in a Tiled map
+     * with a staggered or hexagonal orientation.</p>
+     */
     public static enum StaggerIndex {
         EVEN, ODD
     }
@@ -57,26 +73,53 @@ public class TiledMap {
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
     
+    /**
+     * Returns this map's orientation.
+     * @return This map's orientation
+     */
     public final Orientation getOrientation() {
         return orientation;
     }
     
+    /**
+     * Returns the order in which the tiles in this map's tile layers are
+     * rendered.
+     * @return This map's tile rendering order
+     */
     public final RenderOrder getRenderOrder() {
         return renderOrder;
     }
     
+    /**
+     * Returns this map's width in tiles. If this map is marked as infinite, its
+     * width is meaningless.
+     * @return This map's width in tiles
+     */
     public final int getWidth() {
         return width;
     }
     
+    /**
+     * Returns this map's height in tiles. If this map is marked as infinite,
+     * its height is meaningless.
+     * @return This map's height in tiles
+     */
     public final int getHeight() {
         return height;
     }
     
+    /**
+     * Returns the width of one tile in this map.
+     * @return The width of one tile in this map
+     */
     public final int getTileWidth() {
         return tileWidth;
     }
     
+    /**
+     * Returns the height of one tile in this map.
+     * @return The height of one tile in this map
+     */
     public final int getTileHeight() {
         return tileHeight;
     }

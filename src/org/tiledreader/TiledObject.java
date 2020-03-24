@@ -6,13 +6,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * <p>A TiledObject represents a Tiled object in an object layer, or as part of
+ * the specification of a tile's collision properties. It corresponds to an
+ * &lt;object&gt; tag inside an &lt;objectgroup&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledObject {
     
+    /**
+     * <p>Represents a shape that a Tiled object can take, such as an ellipse or
+     * polygon.</p>
+     */
     public static enum Shape {
-        ELLIPSE, POINT, POLYGON, POLYLINE, TEXT
+        ELLIPSE, POINT, POLYGON, POLYLINE, RECTANGLE, TEXT
     }
     
     private final String name, type;
@@ -23,12 +29,13 @@ public class TiledObject {
     private final List<Point2D> points;
     private final TiledText text;
     private final Map<String,Object> properties;
+    private final TiledObjectTemplate template;
     
     TiledObject(String name, String type, float x, float y, float width, float height, float rotation,
             TiledTile tile, boolean visible, TiledObject.Shape shape, List<Point2D> points, TiledText text,
-            Map<String,Object> properties) {
-        this.name = name;
-        this.type = type;
+            Map<String,Object> properties, TiledObjectTemplate template) {
+        this.name = (name == null ? "" : name);
+        this.type = (type == null ? "" : type);
         this.x = x;
         this.y = y;
         this.width = width;
@@ -41,32 +48,61 @@ public class TiledObject {
         this.text = text;
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
+        this.template = template;
     }
     
+    /**
+     * Returns this object's name (the empty string by default).
+     * @return This object's name
+     */
     public final String getName() {
         return name;
     }
     
+    /**
+     * Returns this object's type, (the empty string by default).
+     * @return This object's type
+     */
     public final String getType() {
         return type;
     }
     
+    /**
+     * Returns this object's x-coordinate in pixels.
+     * @return This object's x-coordinate in pixels
+     */
     public final float getX() {
         return x;
     }
     
+    /**
+     * Returns this object's y-coordinate in pixels.
+     * @return This object's y-coordinate in pixels
+     */
     public final float getY() {
         return y;
     }
     
+    /**
+     * Returns this object's width in pixels (0 by default).
+     * @return This object's width in pixels
+     */
     public final float getWidth() {
         return width;
     }
     
+    /**
+     * Returns this object's height in pixels (0 by default).
+     * @return This object's height in pixels
+     */
     public final float getHeight() {
         return height;
     }
     
+    /**
+     * Returns the rotation of this object in clockwise degrees (0 by default).
+     * @return The rotation of this object in clockwise degrees
+     */
     public final float getRotation() {
         return rotation;
     }
@@ -80,10 +116,19 @@ public class TiledObject {
         return tile;
     }
     
+    /**
+     * Returns whether this object is marked as visible (true by default).
+     * @return Whether this object is marked as visible
+     */
     public final boolean getVisible() {
         return visible;
     }
     
+    /**
+     * Returns this object's shape (<code>TiledObject.Shape.RECTANGLE</code> by
+     * default).
+     * @return This object's shape
+     */
     public final TiledObject.Shape getShape() {
         return shape;
     }
@@ -134,6 +179,15 @@ public class TiledObject {
      */
     public final Object getProperty(String name) {
         return properties.get(name);
+    }
+    
+    /**
+     * Returns the template from which this object inherits its default
+     * properties, or null if no template was specified.
+     * @return This object's template
+     */
+    public final TiledObjectTemplate getTemplate() {
+        return template;
     }
     
 }

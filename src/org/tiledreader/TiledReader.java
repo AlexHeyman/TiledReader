@@ -2040,7 +2040,7 @@ public final class TiledReader {
             gid = 0;
             tile = null;
             visible = true;
-            shape = null;
+            shape = TiledObject.Shape.RECTANGLE;
             points = null;
             text = null;
             properties = new HashMap<>();
@@ -2250,11 +2250,14 @@ public final class TiledReader {
         float y = parseFloat(reader, "y", attributeValues.get("y"));
         
         File templateFile = parseFile(file, reader, "template", attributeValues.get("template"), true, null);
+        TiledObjectTemplate template;
         ObjectData data;
         if (templateFile == null) {
+            template = null;
             data = new ObjectData();
         } else {
-            data = new ObjectData(getTemplate(templateFile));
+            template = getTemplate(templateFile);
+            data = new ObjectData(template);
         }
         
         updateObjectData(reader, data, attributeValues);
@@ -2265,7 +2268,8 @@ public final class TiledReader {
             data.tile = null;
         }
         TiledObject object = new TiledObject(data.name, data.type, x, y, data.width, data.height,
-                data.rotation, data.tile, data.visible, data.shape, data.points, data.text, data.properties);
+                data.rotation, data.tile, data.visible, data.shape, data.points, data.text, data.properties,
+                template);
         if (data.gid != 0) {
             tileObjectsToResolve.add(new Pair<>(object, data.gid));
         }

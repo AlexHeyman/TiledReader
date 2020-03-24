@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * <p>A TiledObjectTemplate represents a template from which TiledObjects can
+ * borrow their default properties. It corresponds to a &lt;template&gt; tag in
+ * a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledObjectTemplate {
@@ -37,22 +39,46 @@ public class TiledObjectTemplate {
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
     
+    /**
+     * Returns the name of objects with this template (the empty string by
+     * default).
+     * @return The name of objects with this template
+     */
     public final String getName() {
         return name;
     }
     
+    /**
+     * Returns the type of objects with this template (the empty string by
+     * default).
+     * @return The type of objects with this template
+     */
     public final String getType() {
         return type;
     }
     
+    /**
+     * Returns the width in pixels of objects with this template (0 by default).
+     * @return The width in pixels of objects with this template
+     */
     public final float getWidth() {
         return width;
     }
     
+    /**
+     * Returns the height in pixels of objects with this template (0 by
+     * default).
+     * @return The height in pixels of objects with this template
+     */
     public final float getHeight() {
         return height;
     }
     
+    /**
+     * Returns the rotation in clockwise degrees of objects with this template
+     * (0 by default).
+     * @return The rotation in clockwise degrees of objects with this template
+     */
     public final float getRotation() {
         return rotation;
     }
@@ -66,10 +92,20 @@ public class TiledObjectTemplate {
         return tile;
     }
     
+    /**
+     * Returns whether objects with this template are marked as visible (true by
+     * default).
+     * @return Whether objects with this template are marked as visible
+     */
     public final boolean getVisible() {
         return visible;
     }
     
+    /**
+     * Returns the shape of objects with this template
+     * (<code>TiledObject.Shape.RECTANGLE</code> by default).
+     * @return The shape of objects with this template
+     */
     public final TiledObject.Shape getShape() {
         return shape;
     }
