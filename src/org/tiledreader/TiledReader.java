@@ -360,6 +360,14 @@ public final class TiledReader {
     private static final Map<File,TiledTileset> tilesets = new HashMap<>();
     private static final Map<File,TiledObjectTemplate> templates = new HashMap<>();
     
+    private static File getCanonicalFile(String path) {
+        try {
+            return new File(path).getCanonicalFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
     /**
      * Reads a Tiled map from the specified TMX file and returns it as a
      * TiledMap object. If the Tiled map references any tilesets or object
@@ -369,7 +377,7 @@ public final class TiledReader {
      * @return The Tiled map from the specified file
      */
     public static TiledMap getMap(String path) {
-        File file = new File(path);
+        File file = getCanonicalFile(path);
         path = file.getPath();
         TiledMap map = maps.get(file);
         if (map == null) {
@@ -425,7 +433,7 @@ public final class TiledReader {
      * the file had not been read before
      */
     public static TiledMap removeMap(String path) {
-        return maps.remove(new File(path));
+        return maps.remove(getCanonicalFile(path));
     }
     
     /**
@@ -444,7 +452,7 @@ public final class TiledReader {
      * @return The Tiled tileset from the specified file
      */
     public static TiledTileset getTileset(String path) {
-        return getTSXTileset(new File(path));
+        return getTSXTileset(getCanonicalFile(path));
     }
     
     /**
@@ -455,7 +463,7 @@ public final class TiledReader {
      * if the file had not been read before
      */
     public static TiledTileset removeTileset(String path) {
-        return tilesets.remove(new File(path));
+        return tilesets.remove(getCanonicalFile(path));
     }
     
     /**
@@ -473,7 +481,7 @@ public final class TiledReader {
      * @return The Tiled object template from the specified file
      */
     public static TiledObjectTemplate getTemplate(String path) {
-        return getTemplate(new File(path));
+        return getTemplate(getCanonicalFile(path));
     }
     
     /**
@@ -484,7 +492,7 @@ public final class TiledReader {
      * null if the file had not been read before
      */
     public static TiledObjectTemplate removeTemplate(String path) {
-        return templates.remove(new File(path));
+        return templates.remove(getCanonicalFile(path));
     }
     
     /**
@@ -810,7 +818,7 @@ public final class TiledReader {
                 throwMissingAttributeException(reader, attribute);
             }
         }
-        return new File(file.toPath().resolveSibling(value).toString());
+        return getCanonicalFile(file.toPath().resolveSibling(value).toString());
     }
     
     private static File parseFile(File file, XMLStreamReader reader, String attribute, String value)
