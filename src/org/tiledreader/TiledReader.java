@@ -35,6 +35,19 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 /**
+ * <p>The TiledReader class is the main class of the TiledReader library, and
+ * the library's means of accessing Tiled files. The TiledReader class cannot be
+ * instantiated; instead, it has static methods that read Tiled maps, tilesets,
+ * and object templates from specified files.</p>
+ * 
+ * <p>The TiledReader class stores pointers to all of the data structures that
+ * it has read, and will use these pointers to return the very same data
+ * structure if asked to read the same file multiple times. This is mainly to
+ * ensure that, if multiple Tiled maps reference the same external tileset or
+ * object template file, the external file will not be wastefully parsed and
+ * stored in memory multiple times. However, the TiledReader class also contains
+ * static methods that can be called manually to erase these records.</p>
+ * 
  * <p>TiledReader does not support image data embedded directly in TMX/TSX
  * files. As of Tiled version 1.3.3, however, it is not possible to embed image
  * data in files using the Tiled editor.</p>
@@ -50,8 +63,23 @@ public final class TiledReader {
     
     private TiledReader() {}
     
+    /**
+     * The version number of TiledReader, currently 1.0.0.
+     */
     public static final String VERSION = "1.0.0";
+    
+    /**
+     * The version number of Tiled that this version of TiledReader was designed
+     * for. Currently 1.3.3.
+     */
     public static final String TILED_VERSION = "1.3.3";
+    
+    /**
+     * The version of the TMX file format that this version of TiledReader was
+     * designed for. Currently 1.2. This is what matters most for file
+     * compatibility, and TiledReader will produce a warning if it reads a file
+     * with a TMX format version that does not match this constant.
+     */
     public static final String TMX_VERSION = "1.2";
     
     private static Map<Integer,String> EVENT_TYPE_NAMES = null;
@@ -332,6 +360,14 @@ public final class TiledReader {
     private static final Map<File,TiledTileset> tilesets = new HashMap<>();
     private static final Map<File,TiledObjectTemplate> templates = new HashMap<>();
     
+    /**
+     * Reads a Tiled map from the specified TMX file and returns it as a
+     * TiledMap object. If the Tiled map references any tilesets or object
+     * templates in external files, those files will be automatically read as
+     * well.
+     * @param path The path to the TMX file to read
+     * @return The Tiled map from the specified file
+     */
     public static TiledMap getMap(String path) {
         File file = new File(path);
         path = file.getPath();
@@ -381,34 +417,80 @@ public final class TiledReader {
         return map;
     }
     
+    /**
+     * Removes the TiledReader class' pointer to the TiledMap it read from the
+     * specified TMX file, if it has read that file before.
+     * @param path The path to the TMX file to forget about
+     * @return The TiledMap that was read from the specified file, or null if
+     * the file had not been read before
+     */
     public static TiledMap removeMap(String path) {
         return maps.remove(new File(path));
     }
     
+    /**
+     * Removes all of the TiledReader class' pointers to TiledMaps that it has
+     * read from TMX files.
+     */
     public static void clearMaps() {
         maps.clear();
     }
     
+    /**
+     * Reads a Tiled tileset from the specified TSX file and returns it as a
+     * TiledTileset object. If the tileset references any object templates in
+     * external files, those files will be automatically read as well.
+     * @param path The path to the TSX file to read
+     * @return The Tiled tileset from the specified file
+     */
     public static TiledTileset getTileset(String path) {
         return getTSXTileset(new File(path));
     }
     
+    /**
+     * Removes the TiledReader class' pointer to the TiledTileset it read from
+     * the specified TSX file, if it has read that file before.
+     * @param path The path to the TSX file to forget about
+     * @return The TiledTileset that was read from the specified file, or null
+     * if the file had not been read before
+     */
     public static TiledTileset removeTileset(String path) {
         return tilesets.remove(new File(path));
     }
     
+    /**
+     * Removes all of the TiledReader class' pointers to TiledTilesets that it
+     * has read from TSX files.
+     */
     public static void clearTilesets() {
         tilesets.clear();
     }
     
+    /**
+     * Reads a Tiled object template from the specified TX file and returns it
+     * as a TiledObjectTemplate object.
+     * @param path The path to the TX file to read
+     * @return The Tiled object template from the specified file
+     */
     public static TiledObjectTemplate getTemplate(String path) {
         return getTemplate(new File(path));
     }
     
+    /**
+     * Removes the TiledReader class' pointer to the TiledObjectTemplate it read
+     * from the specified TX file, if it has read that file before.
+     * @param path The path to the TX file to forget about
+     * @return The TiledObjectTemplate that was read from the specified file, or
+     * null if the file had not been read before
+     */
     public static TiledObjectTemplate removeTemplate(String path) {
         return templates.remove(new File(path));
     }
     
+    /**
+     * Removes all of the TiledReader class' pointers to TiledObjectTemplates
+     * that it has read from TX files.
+     */
     public static void clearTemplates() {
         templates.clear();
     }
