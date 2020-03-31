@@ -57,6 +57,10 @@ import javax.xml.stream.XMLStreamReader;
  * attributes of tile layers, object layers, and image layers (not to be
  * confused with the rendering x and y offsets, which are supported), as well as
  * the width and height attributes of object layers.</p>
+ * 
+ * <p>For details on the structure and content of Tiled files, see
+ * <a href="https://doc.mapeditor.org/en/stable/reference/tmx-map-format/">the
+ * official Tiled documentation on the subject</a>.</p>
  * @author Alex Heyman
  */
 public final class TiledReader {
@@ -2283,7 +2287,7 @@ public final class TiledReader {
                 }
                 
                 data.text = new TiledText(content, fontFamily, pixelSize, wrap, color,
-                        bold, italic, strikeout, underline, kerning, hAlign, vAlign);
+                        bold, italic, underline, strikeout, kerning, hAlign, vAlign);
                 break;
         }
     }
