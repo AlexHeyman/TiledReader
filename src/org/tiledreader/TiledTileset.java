@@ -7,11 +7,15 @@ import java.util.Map;
 import java.util.SortedMap;
 
 /**
- *
+ * <p>A TiledTileset represents a tileset. It corresponds to a &lt;tileset&gt;
+ * tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
 public class TiledTileset {
     
+    /**
+     * <p>Represents an orientation that a tileset's tile grid can have.</p>
+     */
     public static enum GridOrientation {
         ORTHOGONAL, ISOMETRIC
     }
@@ -77,22 +81,46 @@ public class TiledTileset {
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
     
+    /**
+     * Returns this tileset's name.
+     * @return This tileset's name
+     */
     public final String getName() {
         return name;
     }
     
+    /**
+     * Returns the width in pixels of each of this tileset's tiles.
+     * @return The width in pixels of each of this tileset's tiles
+     */
     public final int getTileWidth() {
         return tileWidth;
     }
     
+    /**
+     * Returns the height in pixels of each of this tileset's tiles.
+     * @return The height in pixels of each of this tileset's tiles
+     */
     public final int getTileHeight() {
         return tileHeight;
     }
-
+    
+    /**
+     * Returns the spacing in pixels between this tileset's tiles in the
+     * tileset's image (0 by default). If this tileset is an image collection
+     * tileset, this value is meaningless.
+     * @return The spacing in pixels between this tileset's tiles
+     */
     public final int getSpacing() {
         return spacing;
     }
     
+    /**
+     * Returns the margin in pixels around this tileset's tiles in the tileset's
+     * image (0 by default). If this tileset is an image collection tileset,
+     * this value is meaningless.
+     * @return The margin in pixels around this tileset's tiles
+     */
     public final int getMargin() {
         return margin;
     }
@@ -138,8 +166,10 @@ public class TiledTileset {
     /**
      * Returns the tile at the specified location in this tileset, if this
      * tileset is a single-image tileset.
-     * @param x The x-coordinate in tiles of the location
-     * @param y The y-coordinate in tiles of the location
+     * @param x The x-coordinate in tiles of the location. x-coordinates range
+     * from 0 to getWidth() - 1, increasing from left to right.
+     * @param y The y-coordinate in tiles of the location. y-coordinates range
+     * from 0 to getHeight() - 1, increasing from top to bottom.
      * @return The tile at the specified location
      * @throws UnsupportedOperationException if this tileset is an image
      * collection tileset
@@ -158,22 +188,47 @@ public class TiledTileset {
         return locationTiles[x][y];
     }
     
+    /**
+     * Returns the horizontal rendering offset in pixels of this tileset's tiles
+     * (0 by default).
+     * @return The horizontal rendering offset in pixels of this tileset's tiles
+     */
     public final int getTileOffsetX() {
         return tileOffsetX;
     }
     
+    /**
+     * Returns the vertical rendering offset in pixels of this tileset's tiles
+     * (0 by default).
+     * @return The vertical rendering offset in pixels of this tileset's tiles
+     */
     public final int getTileOffsetY() {
         return tileOffsetY;
     }
     
+    /**
+     * Returns the orientation of this tileset's tile grid
+     * (<code>TiledTileset.GridOrientation.ORTHOGONAL</code> by default).
+     * @return The orientation of this tileset's tile grid
+     */
     public final GridOrientation getGridOrientation() {
         return gridOrientation;
     }
     
+    /**
+     * Returns the width in pixels of the cells in this tileset's tile grid (by
+     * default, equal to getTileWidth()).
+     * @return The width in pixels of the cells in this tileset's tile grid
+     */
     public final int getGridWidth() {
         return gridWidth;
     }
     
+    /**
+     * Returns the height in pixels of the cells in this tileset's tile grid (by
+     * default, equal to getTileHeight()).
+     * @return The height in pixels of the cells in this tileset's tile grid
+     */
     public final int getGridHeight() {
         return gridHeight;
     }
@@ -187,10 +242,20 @@ public class TiledTileset {
         return image;
     }
     
+    /**
+     * Returns an unmodifiable Map view of this tileset's terrain types. Each
+     * key in the Map is the name of a terrain type, and its corresponding value
+     * is the TiledTerrainType object that represents that terrain type.
+     * @return This tileset's terrain types
+     */
     public final Map<String,TiledTerrainType> getTerrainTypes() {
         return terrainTypes;
     }
     
+    /**
+     * Returns an unmodifiable List view of this tileset's Wang sets.
+     * @return This tileset's Wang sets
+     */
     public final List<TiledWangSet> getWangSets() {
         return wangSets;
     }

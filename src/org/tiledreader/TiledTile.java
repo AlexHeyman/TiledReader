@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * <p>A TiledTile represents one of the tiles in a tileset. It corresponds to a
+ * &lt;tile&gt; tag inside a &lt;tileset&gt; tag in a Tiled XML file, or to a
+ * tile implicitly specified as part of a &lt;tileset&gt; tag.</p>
  * @author Alex Heyman
  */
 public class TiledTile {
@@ -42,18 +44,36 @@ public class TiledTile {
         }
     }
     
+    /**
+     * Returns the tileset to which this tile belongs.
+     * @return This tile's tileset
+     */
     public final TiledTileset getTileset() {
         return tileset;
     }
     
+    /**
+     * Returns this tile's local ID within its tileset.
+     * @return This tile's local ID
+     */
     public final int getID() {
         return id;
     }
     
+    /**
+     * Returns this tile's x-coordinate within its tileset, if it is a
+     * single-image tileset, or -1 if it is an image collection tileset.
+     * @return This tile's x-coordinate within its tileset
+     */
     public final int getTilesetX() {
         return tilesetX;
     }
     
+    /**
+     * Returns this tile's y-coordinate within its tileset, if it is a
+     * single-image tileset, or -1 if it is an image collection tileset.
+     * @return This tile's y-coordinate within its tileset
+     */
     public final int getTilesetY() {
         return tilesetY;
     }
