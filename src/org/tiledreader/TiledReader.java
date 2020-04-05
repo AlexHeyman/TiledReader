@@ -1536,18 +1536,14 @@ public final class TiledReader {
         
         String name = attributeValues.get("name");
         
-        String tileIDStr = attributeValues.get("tile");
-        int tileID = parseInt(reader, "tile", tileIDStr);
-        if (tileID < 0) {
-            throwInvalidValueException(reader, "tile", tileIDStr, "value must be non-negative");
-        }
-        TiledTile tile = getTile(idTiles, tileID);
+        int tileID = parseInt(reader, "tile", attributeValues.get("tile"));
+        TiledTile tile = (tileID < 0 ? null : getTile(idTiles, tileID));
         
         int bitsPerColor = 4;
-        int maxColorsPerType = 1 << bitsPerColor;
+        int maxColorsPerType = (1 << bitsPerColor) - 1;
         List<TiledWangColor> cornerColors = new ArrayList<>();
         List<TiledWangColor> edgeColors = new ArrayList<>();
-        Map<TiledTile,Integer> wangTileData = new HashMap<>();
+        Map<TiledTile,String> wangTileData = new HashMap<>();
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
@@ -1587,19 +1583,27 @@ public final class TiledReader {
         }
         
         Map<TiledTile,TiledWangTile> wangTiles = new HashMap<>();
-        for (Map.Entry<TiledTile,Integer> entry : wangTileData.entrySet()) {
+        for (Map.Entry<TiledTile,String> entry : wangTileData.entrySet()) {
             TiledTile entryTile = entry.getKey();
-            int wangID = entry.getValue();
+            String wangID = entry.getValue();
+            if (!(wangID.length() == 10) && (wangID.substring(0, 2).equals("0x"))) {
+                throw new XMLStreamException(describeReaderLocation(reader)
+                        + ": <wangtile> tag for tile ID " + entryTile.getID()
+                        + " has invalid wangid attribute");
+            }
             TiledWangColor[] wangTileColors = new TiledWangColor[8];
             for (int i = 0; i < wangTileColors.length; i++) {
-                int colorIndex = (wangID >> (bitsPerColor * i)) & (maxColorsPerType - 1);
-                List<TiledWangColor> colorList = ((i % 2) == 0 ? edgeColors : cornerColors);
-                if (colorIndex < 0 || colorIndex >= colorList.size()) {
+                int colorIndex = parseHexDigit(wangID.charAt(9 - i));
+                if (colorIndex == -1) {
                     throw new XMLStreamException(describeReaderLocation(reader)
                             + ": <wangtile> tag for tile ID " + entryTile.getID()
                             + " has invalid wangid attribute");
                 }
-                wangTileColors[i] = colorList.get(colorIndex);
+                if (colorIndex == 0) {
+                    continue;
+                }
+                List<TiledWangColor> colorList = ((i % 2) == 0 ? edgeColors : cornerColors);
+                wangTileColors[i] = colorList.get(colorIndex - 1);
             }
             wangTiles.put(entryTile, new TiledWangTile(entryTile, wangTileColors));
         }
@@ -1613,12 +1617,8 @@ public final class TiledReader {
         String name = attributeValues.get("name");
         Color color = parseColor(reader, "color", attributeValues.get("color"));
         
-        String tileIDStr = attributeValues.get("tile");
-        int tileID = parseInt(reader, "tile", tileIDStr);
-        if (tileID < 0) {
-            throwInvalidValueException(reader, "tile", tileIDStr, "value must be non-negative");
-        }
-        TiledTile tile = getTile(idTiles, tileID);
+        int tileID = parseInt(reader, "tile", attributeValues.get("tile"));
+        TiledTile tile = (tileID < 0 ? null : getTile(idTiles, tileID));
         
         float probability = parseFloat(reader, "probability", attributeValues.get("probability"));
         
@@ -1627,7 +1627,7 @@ public final class TiledReader {
     }
     
     private static void readWangTile(XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Map<TiledTile,Integer> wangTileData) throws XMLStreamException {
+            Map<TiledTile,String> wangTileData) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, WANGTILE_ATTRIBUTES);
         
         String tileIDStr = attributeValues.get("tileid");
@@ -1638,9 +1638,8 @@ public final class TiledReader {
         TiledTile tile = getTile(idTiles, tileID);
         
         if (wangTileData.get(tile) == null) {
-            int wangID = parseInt(reader, "wangid", attributeValues.get("wangid"));
             finishTag(reader);
-            wangTileData.put(tile, wangID);
+            wangTileData.put(tile, attributeValues.get("wangid"));
         } else {
             ignoreRedundantTag(reader);
         }

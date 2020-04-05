@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * <p>A TiledTile represents one of the tiles in a tileset. It corresponds to a
  * &lt;tile&gt; tag inside a &lt;tileset&gt; tag in a Tiled XML file, or to a
- * tile implicitly specified as part of a &lt;tileset&gt; tag.</p>
+ * tile implicitly declared by the attributes of a &lt;tileset&gt; tag.</p>
  * @author Alex Heyman
  */
 public class TiledTile {

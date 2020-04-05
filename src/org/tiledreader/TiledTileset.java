@@ -245,7 +245,7 @@ public class TiledTileset {
     /**
      * Returns an unmodifiable Map view of this tileset's terrain types. Each
      * key in the Map is the name of a terrain type, and its corresponding value
-     * is the TiledTerrainType object that represents that terrain type.
+     * is that terrain type itself.
      * @return This tileset's terrain types
      */
     public final Map<String,TiledTerrainType> getTerrainTypes() {
