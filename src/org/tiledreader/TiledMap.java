@@ -43,6 +43,7 @@ public class TiledMap {
         EVEN, ODD
     }
     
+    private final String path;
     private final Orientation orientation;
     private final RenderOrder renderOrder;
     private final int width, height, tileWidth, tileHeight, hexSideLength;
@@ -53,10 +54,11 @@ public class TiledMap {
     private final List<TiledLayer> layers;
     private final Map<String,Object> properties;
     
-    TiledMap(Orientation orientation, RenderOrder renderOrder,
+    TiledMap(String path, Orientation orientation, RenderOrder renderOrder,
             int width, int height, int tileWidth, int tileHeight, int hexSideLength,
             StaggerAxis staggerAxis, StaggerIndex staggerIndex, Color backgroundColor,
             List<TiledTileset> tilesets, List<TiledLayer> layers, Map<String,Object> properties) {
+        this.path = path;
         this.orientation = orientation;
         this.renderOrder = renderOrder;
         this.width = width;
@@ -71,6 +73,18 @@ public class TiledMap {
         this.layers = Collections.unmodifiableList(layers);
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
+    }
+    
+    /**
+     * Returns the path to the TMX file from which this map was read. If this
+     * map was returned by a call to TiledReader.getMap(), the String returned
+     * by this method may not be equal to the path argument passed to
+     * TiledReader.getMap(). However, both path Strings are guaranteed to point
+     * to the same file.
+     * @return The path to the TMX file from which this map was read
+     */
+    public final String getPath() {
+        return path;
     }
     
     /**

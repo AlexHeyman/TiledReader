@@ -942,11 +942,12 @@ public final class TiledReader {
         for (Pair<TiledTileset,Integer> pair : tileData.tilesets) {
             mapTilesets.add(pair.getKey());
         }
-        return new TiledMap(orientation, renderOrder, width, height, tileWidth, tileHeight, hexSideLength,
-            staggerAxis, staggerIndex, backgroundColor, mapTilesets, layers, properties);
+        return new TiledMap(file.getPath(), orientation, renderOrder, width, height,
+                tileWidth, tileHeight, hexSideLength, staggerAxis, staggerIndex, backgroundColor,
+                mapTilesets, layers, properties);
     }
     
-    private static TiledTileset readTileset(File file, XMLStreamReader reader,
+    private static TiledTileset readTileset(File file, boolean fileIsTSX, XMLStreamReader reader,
             Map<String,String> attributeValues) throws XMLStreamException {
         String startLocation = describeReaderLocation(reader);
         
@@ -1119,9 +1120,9 @@ public final class TiledReader {
             }
         }
         
-        TiledTileset tileset = new TiledTileset(name, tileWidth, tileHeight, spacing, margin, idTiles,
-                columns, tileOffsetX, tileOffsetY, gridOrientation, gridWidth, gridHeight, image,
-                terrainTypes, wangSets, properties);
+        TiledTileset tileset = new TiledTileset((fileIsTSX ? file.getPath() : null),
+                name, tileWidth, tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY,
+                gridOrientation, gridWidth, gridHeight, image, terrainTypes, wangSets, properties);
         for (TiledTile tile : idTiles.values()) {
             tile.tileset = tileset;
         }
@@ -1152,7 +1153,7 @@ public final class TiledReader {
                     throwMissingAttributeException(reader, entry.getKey());
                 }
             }
-            tileset = readTileset(file, reader, attributeValues);
+            tileset = readTileset(file, false, reader, attributeValues);
         } else {
             File source = parseFile(file, reader, "source", sourceStr);
             tileset = getTSXTileset(source);
@@ -1182,7 +1183,7 @@ public final class TiledReader {
                                         Map<String,String> attributeValues
                                                 = getAttributeValues(reader, TSX_TILESET_ATTRIBUTES);
                                         checkVersion(reader, attributeValues.get("version"));
-                                        tileset = readTileset(file, reader, attributeValues);
+                                        tileset = readTileset(file, true, reader, attributeValues);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -2656,8 +2657,9 @@ public final class TiledReader {
             }
         }
         
-        return new TiledObjectTemplate(data.name, data.type, data.width, data.height, data.rotation,
-                objectTile, data.visible, data.shape, data.points, data.text, data.properties);
+        return new TiledObjectTemplate(file.getPath(),
+                data.name, data.type, data.width, data.height, data.rotation, objectTile,
+                data.visible, data.shape, data.points, data.text, data.properties);
     }
     
     private static TiledObjectTemplate getTemplate(File file) {
