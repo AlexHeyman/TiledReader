@@ -40,13 +40,14 @@ import javax.xml.stream.XMLStreamReader;
  * instantiated; instead, it has static methods that read Tiled maps, tilesets,
  * and object templates from specified files.</p>
  * 
- * <p>The TiledReader class stores pointers to all of the data structures that
- * it has read, and will use these pointers to return the very same data
- * structure if asked to read the same file multiple times. This is mainly to
- * ensure that, if multiple Tiled maps reference the same external tileset or
- * object template file, the external file will not be wastefully parsed and
- * stored in memory multiple times. However, the TiledReader class also contains
- * static methods that can be called manually to erase these records.</p>
+ * <p>The TiledReader class stores pointers to the maps, tilesets, and object
+ * templates corresponding to all of the files it has read, and will use these
+ * pointers to return the very same resource object if asked to read the same
+ * file multiple times. This is mainly to ensure that, if multiple Tiled maps
+ * reference the same external tileset or object template file, the external
+ * file will not be wastefully parsed and stored in memory multiple times.
+ * However, the TiledReader class also contains static methods that can be
+ * called manually to erase these records.</p>
  * 
  * <p>TiledReader does not support image data embedded directly in TMX/TSX
  * files. As of Tiled version 1.3.3, however, it is not possible to embed image
@@ -360,9 +361,15 @@ public final class TiledReader {
     
     private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
     
-    private static final Map<File,TiledMap> maps = new HashMap<>();
-    private static final Map<File,TiledTileset> tilesets = new HashMap<>();
-    private static final Map<File,TiledObjectTemplate> templates = new HashMap<>();
+    private static class ResourceData {
+        
+        private Object resource = null;
+        private Set<File> referToThis = new HashSet<>();
+        private Set<File> referencedByThis = new HashSet<>();
+        
+    }
+    
+    private static final Map<File,ResourceData> resources = new HashMap<>();
     
     private static File getCanonicalFile(String path) {
         try {
@@ -370,6 +377,11 @@ public final class TiledReader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+    
+    private static void ensureReference(File referer, File referent) {
+        resources.get(referer).referencedByThis.add(referent);
+        resources.get(referent).referToThis.add(referer);
     }
     
     /**
@@ -381,10 +393,16 @@ public final class TiledReader {
      * @return The Tiled map from the specified file
      */
     public static TiledMap getMap(String path) {
+        if (!path.endsWith(".tmx")) {
+            throw new RuntimeException("Attempted to read a Tiled map from a path that does not point to a"
+                    + " TMX file: " + path);
+        }
         File file = getCanonicalFile(path);
         path = file.getPath();
-        TiledMap map = maps.get(file);
-        if (map == null) {
+        ResourceData data = resources.get(file);
+        if (data == null) {
+            data = new ResourceData();
+            resources.put(file, data);
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty("javax.xml.stream.isCoalescing", true);
             try {
@@ -398,8 +416,8 @@ public final class TiledReader {
                         case XMLStreamConstants.START_ELEMENT:
                             switch (reader.getLocalName()) {
                                 case "map":
-                                    if (map == null) {
-                                        map = readMap(file, reader);
+                                    if (data.resource == null) {
+                                        data.resource = readMap(file, reader);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -417,35 +435,15 @@ public final class TiledReader {
                     }
                     next(reader);
                 }
-                if (map == null) {
+                if (data.resource == null) {
                     throw new XMLStreamException("TMX file (" + path + ") contains no top-level <map> tag");
                 }
                 LOGGER.log(Level.INFO, "Finished parsing TMX file: {0}", path);
             } catch (FileNotFoundException | XMLStreamException e) {
                 throw new RuntimeException(e);
             }
-            maps.put(file, map);
         }
-        return map;
-    }
-    
-    /**
-     * Removes the TiledReader class' pointer to the TiledMap it read from the
-     * specified TMX file, if it has read that file before.
-     * @param path The path to the TMX file to forget about
-     * @return The TiledMap that was read from the specified file, or null if
-     * the file had not been read before
-     */
-    public static TiledMap removeMap(String path) {
-        return maps.remove(getCanonicalFile(path));
-    }
-    
-    /**
-     * Removes all of the TiledReader class' pointers to TiledMaps that it has
-     * read from TMX files.
-     */
-    public static void clearMaps() {
-        maps.clear();
+        return (TiledMap)(data.resource);
     }
     
     /**
@@ -456,55 +454,177 @@ public final class TiledReader {
      * @return The Tiled tileset from the specified file
      */
     public static TiledTileset getTileset(String path) {
-        return getTSXTileset(getCanonicalFile(path));
-    }
-    
-    /**
-     * Removes the TiledReader class' pointer to the TiledTileset it read from
-     * the specified TSX file, if it has read that file before.
-     * @param path The path to the TSX file to forget about
-     * @return The TiledTileset that was read from the specified file, or null
-     * if the file had not been read before
-     */
-    public static TiledTileset removeTileset(String path) {
-        return tilesets.remove(getCanonicalFile(path));
-    }
-    
-    /**
-     * Removes all of the TiledReader class' pointers to TiledTilesets that it
-     * has read from TSX files.
-     */
-    public static void clearTilesets() {
-        tilesets.clear();
+        if (!path.endsWith(".tsx")) {
+            throw new RuntimeException("Attempted to read a Tiled tileset from a path that does not point to"
+                    + " a TSX file: " + path);
+        }
+        File file = getCanonicalFile(path);
+        path = file.getPath();
+        ResourceData data = resources.get(file);
+        if (data == null) {
+            data = new ResourceData();
+            resources.put(file, data);
+            XMLInputFactory factory = XMLInputFactory.newInstance();
+            factory.setProperty("javax.xml.stream.isCoalescing", true);
+            try {
+                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
+                LOGGER.log(Level.INFO, "Beginning to parse TSX file: {0}", path);
+                if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
+                    next(reader);
+                }
+                OUTER: while (true) {
+                    switch (reader.getEventType()) {
+                        case XMLStreamConstants.START_ELEMENT:
+                            switch (reader.getLocalName()) {
+                                case "tileset":
+                                    if (data.resource == null) {
+                                        Map<String,String> attributeValues
+                                                = getAttributeValues(reader, TSX_TILESET_ATTRIBUTES);
+                                        checkVersion(reader, attributeValues.get("version"));
+                                        data.resource = readTileset(file, true, reader, attributeValues);
+                                    } else {
+                                        ignoreRedundantTag(reader);
+                                    }
+                                    break;
+                                default:
+                                    ignoreUnexpectedTag(reader);
+                                    break;
+                            }
+                            break;
+                        case XMLStreamConstants.END_DOCUMENT:
+                            break OUTER;
+                        default:
+                            ignoreUnexpectedEvent(reader);
+                            break;
+                    }
+                    next(reader);
+                }
+                if (data.resource == null) {
+                    throw new XMLStreamException("TSX file (" + path
+                            + ") contains no top-level <tileset> tag");
+                }
+                LOGGER.log(Level.INFO, "Finished parsing TSX file: {0}", path);
+            } catch (FileNotFoundException | XMLStreamException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return (TiledTileset)(data.resource);
     }
     
     /**
      * Reads a Tiled object template from the specified TX file and returns it
-     * as a TiledObjectTemplate object.
+     * as a TiledObjectTemplate object. If the template references a tileset in
+     * an external file, that file will be automatically read as well.
      * @param path The path to the TX file to read
      * @return The Tiled object template from the specified file
      */
     public static TiledObjectTemplate getTemplate(String path) {
-        return getTemplate(getCanonicalFile(path));
+        if (!path.endsWith(".tx")) {
+            throw new RuntimeException("Attempted to read a Tiled object template from a path that does not"
+                    + " point to a TX file: " + path);
+        }
+        File file = getCanonicalFile(path);
+        path = file.getPath();
+        ResourceData data = resources.get(file);
+        if (data == null) {
+            data = new ResourceData();
+            resources.put(file, data);
+            XMLInputFactory factory = XMLInputFactory.newInstance();
+            factory.setProperty("javax.xml.stream.isCoalescing", true);
+            try {
+                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
+                LOGGER.log(Level.INFO, "Beginning to parse TX file: {0}", path);
+                if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
+                    next(reader);
+                }
+                OUTER: while (true) {
+                    switch (reader.getEventType()) {
+                        case XMLStreamConstants.START_ELEMENT:
+                            switch (reader.getLocalName()) {
+                                case "template":
+                                    if (data.resource == null) {
+                                        data.resource = readTemplate(file, reader);
+                                    } else {
+                                        ignoreRedundantTag(reader);
+                                    }
+                                    break;
+                                default:
+                                    ignoreUnexpectedTag(reader);
+                                    break;
+                            }
+                            break;
+                        case XMLStreamConstants.END_DOCUMENT:
+                            break OUTER;
+                        default:
+                            ignoreUnexpectedEvent(reader);
+                            break;
+                    }
+                    next(reader);
+                }
+                if (data.resource == null) {
+                    throw new XMLStreamException("TX file (" + path
+                            + ") contains no top-level <template> tag");
+                }
+                LOGGER.log(Level.INFO, "Finished parsing TX file: {0}", path);
+            } catch (FileNotFoundException | XMLStreamException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return (TiledObjectTemplate)(data.resource);
     }
     
     /**
-     * Removes the TiledReader class' pointer to the TiledObjectTemplate it read
-     * from the specified TX file, if it has read that file before.
-     * @param path The path to the TX file to forget about
-     * @return The TiledObjectTemplate that was read from the specified file, or
-     * null if the file had not been read before
+     * Removes the TiledReader class' pointer to the resource it read from the
+     * specified file, if it has read that file before.
+     * @param path The path to the file to forget about
+     * @param cleanUp If true, also remove the pointers to all of the resources
+     * referenced by the resource from the specified file, and not referenced by
+     * any of the other resources that the TiledReader class still points to.
+     * cleanUp applies recursively, so if the removal of any of these "orphaned"
+     * resources causes more resources to be orphaned, those will be removed as
+     * well.
+     * @return Whether the specified file had been read before this method was
+     * called, and hence whether the removal occurred
      */
-    public static TiledObjectTemplate removeTemplate(String path) {
-        return templates.remove(getCanonicalFile(path));
+    public static boolean removeResource(String path, boolean cleanUp) {
+        return removeResource(getCanonicalFile(path), cleanUp);
+    }
+    
+    private static boolean removeResource(File file, boolean cleanUp) {
+        ResourceData data = resources.get(file);
+        if (data == null) {
+            return false;
+        }
+        for (File refererFile : data.referToThis) {
+            resources.get(refererFile).referencedByThis.remove(file);
+        }
+        if (cleanUp) {
+            List<File> orphanedFiles = new ArrayList<>();
+            for (File referencedFile : data.referencedByThis) {
+                ResourceData referencedData = resources.get(referencedFile);
+                referencedData.referToThis.remove(file);
+                if (referencedData.referToThis.isEmpty()) {
+                    orphanedFiles.add(referencedFile);
+                }
+            }
+            for (File orphanedFile : orphanedFiles) {
+                removeResource(orphanedFile, true);
+            }
+        } else {
+            for (File referencedFile : data.referencedByThis) {
+                resources.get(referencedFile).referToThis.remove(file);
+            }
+        }
+        resources.remove(file);
+        return true;
     }
     
     /**
-     * Removes all of the TiledReader class' pointers to TiledObjectTemplates
-     * that it has read from TX files.
+     * Removes all of the TiledReader class' pointers to resources that it has
+     * read from files.
      */
-    public static void clearTemplates() {
-        templates.clear();
+    public static void clearResources() {
+        resources.clear();
     }
     
     private static String describeReaderLocation(XMLStreamReader reader) {
@@ -1156,62 +1276,11 @@ public final class TiledReader {
             tileset = readTileset(file, false, reader, attributeValues);
         } else {
             File source = parseFile(file, reader, "source", sourceStr);
-            tileset = getTSXTileset(source);
+            tileset = getTileset(source.getPath());
+            ensureReference(file, source);
             finishTag(reader);
         }
         return new Pair<>(tileset, firstGID);
-    }
-    
-    private static TiledTileset getTSXTileset(File file) {
-        TiledTileset tileset = tilesets.get(file);
-        if (tileset == null) {
-            String path = file.getPath();
-            XMLInputFactory factory = XMLInputFactory.newInstance();
-            factory.setProperty("javax.xml.stream.isCoalescing", true);
-            try {
-                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
-                LOGGER.log(Level.INFO, "Beginning to parse TSX file: {0}", path);
-                if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
-                    next(reader);
-                }
-                OUTER: while (true) {
-                    switch (reader.getEventType()) {
-                        case XMLStreamConstants.START_ELEMENT:
-                            switch (reader.getLocalName()) {
-                                case "tileset":
-                                    if (tileset == null) {
-                                        Map<String,String> attributeValues
-                                                = getAttributeValues(reader, TSX_TILESET_ATTRIBUTES);
-                                        checkVersion(reader, attributeValues.get("version"));
-                                        tileset = readTileset(file, true, reader, attributeValues);
-                                    } else {
-                                        ignoreRedundantTag(reader);
-                                    }
-                                    break;
-                                default:
-                                    ignoreUnexpectedTag(reader);
-                                    break;
-                            }
-                            break;
-                        case XMLStreamConstants.END_DOCUMENT:
-                            break OUTER;
-                        default:
-                            ignoreUnexpectedEvent(reader);
-                            break;
-                    }
-                    next(reader);
-                }
-                if (tileset == null) {
-                    throw new XMLStreamException("TSX file (" + path
-                            + ") contains no top-level <tileset> tag");
-                }
-                LOGGER.log(Level.INFO, "Finished parsing TSX file: {0}", path);
-            } catch (FileNotFoundException | XMLStreamException e) {
-                throw new RuntimeException(e);
-            }
-            tilesets.put(file, tileset);
-        }
-        return tileset;
     }
     
     private static Pair<TiledTileset,Integer> readTXTileset(File file, XMLStreamReader reader)
@@ -1222,7 +1291,8 @@ public final class TiledReader {
             throwInvalidValueException(reader, "firstgid", firstGID, "value must be non-negative");
         }
         File source = parseFile(file, reader, "source", attributeValues.get("source"));
-        TiledTileset tileset = getTSXTileset(source);
+        TiledTileset tileset = getTileset(source.getPath());
+        ensureReference(file, source);
         finishTag(reader);
         return new Pair<>(tileset, firstGID);
     }
@@ -2350,7 +2420,8 @@ public final class TiledReader {
             template = null;
             data = new ObjectData();
         } else {
-            template = getTemplate(templateFile);
+            template = getTemplate(templateFile.getPath());
+            ensureReference(file, templateFile);
             data = new ObjectData(template);
         }
         
@@ -2660,55 +2731,6 @@ public final class TiledReader {
         return new TiledObjectTemplate(file.getPath(),
                 data.name, data.type, data.width, data.height, data.rotation, objectTile,
                 data.visible, data.shape, data.points, data.text, data.properties);
-    }
-    
-    private static TiledObjectTemplate getTemplate(File file) {
-        String path = file.getPath();
-        TiledObjectTemplate template = templates.get(file);
-        if (template == null) {
-            XMLInputFactory factory = XMLInputFactory.newInstance();
-            factory.setProperty("javax.xml.stream.isCoalescing", true);
-            try {
-                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
-                LOGGER.log(Level.INFO, "Beginning to parse TX file: {0}", path);
-                if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
-                    next(reader);
-                }
-                OUTER: while (true) {
-                    switch (reader.getEventType()) {
-                        case XMLStreamConstants.START_ELEMENT:
-                            switch (reader.getLocalName()) {
-                                case "template":
-                                    if (template == null) {
-                                        template = readTemplate(file, reader);
-                                    } else {
-                                        ignoreRedundantTag(reader);
-                                    }
-                                    break;
-                                default:
-                                    ignoreUnexpectedTag(reader);
-                                    break;
-                            }
-                            break;
-                        case XMLStreamConstants.END_DOCUMENT:
-                            break OUTER;
-                        default:
-                            ignoreUnexpectedEvent(reader);
-                            break;
-                    }
-                    next(reader);
-                }
-                if (template == null) {
-                    throw new XMLStreamException("TX file (" + path
-                            + ") contains no top-level <template> tag");
-                }
-                LOGGER.log(Level.INFO, "Finished parsing TX file: {0}", path);
-            } catch (FileNotFoundException | XMLStreamException e) {
-                throw new RuntimeException(e);
-            }
-            templates.put(file, template);
-        }
-        return template;
     }
     
 }
