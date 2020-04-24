@@ -11,7 +11,7 @@ import java.util.SortedMap;
  * tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledTileset {
+public class TiledTileset extends TiledResource {
     
     /**
      * <p>Represents an orientation that a tileset's tile grid can have.</p>
@@ -20,7 +20,7 @@ public class TiledTileset {
         ORTHOGONAL, ISOMETRIC
     }
     
-    private final String path, name;
+    private final String name;
     private final int tileWidth, tileHeight, spacing, margin;
     private final SortedMap<Integer,TiledTile> idTiles;
     private final TiledTile[][] locationTiles;
@@ -38,7 +38,7 @@ public class TiledTileset {
             GridOrientation gridOrientation, int gridWidth, int gridHeight, TiledImage image,
             Map<String,TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
             Map<String,Object> properties) {
-        this.path = path;
+        super(path);
         this.name = name;
         this.tileWidth = tileWidth;
         this.tileHeight = tileHeight;
@@ -80,19 +80,6 @@ public class TiledTileset {
                 Collections.emptyList() : Collections.unmodifiableList(wangSets));
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
-    }
-    
-    /**
-     * Returns the path to the TSX file from which this tileset was read, or
-     * null if this tileset was embedded in a TMX file. If this tileset was
-     * returned by a call to TiledReader.getTileset(), the String returned by
-     * this method may not be equal to the path argument passed to
-     * TiledReader.getTileset(). However, both path Strings are guaranteed to
-     * point to the same file.
-     * @return The path to the TSX file from which this tileset was read
-     */
-    public final String getPath() {
-        return path;
     }
     
     /**

@@ -10,7 +10,7 @@ import java.util.Map;
  * &lt;map&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledMap {
+public class TiledMap extends TiledResource {
     
     /**
      * <p>Represents an orientation that a Tiled map can have.</p>
@@ -43,7 +43,6 @@ public class TiledMap {
         EVEN, ODD
     }
     
-    private final String path;
     private final Orientation orientation;
     private final RenderOrder renderOrder;
     private final int width, height, tileWidth, tileHeight, hexSideLength;
@@ -58,7 +57,7 @@ public class TiledMap {
             int width, int height, int tileWidth, int tileHeight, int hexSideLength,
             StaggerAxis staggerAxis, StaggerIndex staggerIndex, Color backgroundColor,
             List<TiledTileset> tilesets, List<TiledLayer> layers, Map<String,Object> properties) {
-        this.path = path;
+        super(path);
         this.orientation = orientation;
         this.renderOrder = renderOrder;
         this.width = width;
@@ -73,18 +72,6 @@ public class TiledMap {
         this.layers = Collections.unmodifiableList(layers);
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
-    }
-    
-    /**
-     * Returns the path to the TMX file from which this map was read. If this
-     * map was returned by a call to TiledReader.getMap(), the String returned
-     * by this method may not be equal to the path argument passed to
-     * TiledReader.getMap(). However, both path Strings are guaranteed to point
-     * to the same file.
-     * @return The path to the TMX file from which this map was read
-     */
-    public final String getPath() {
-        return path;
     }
     
     /**

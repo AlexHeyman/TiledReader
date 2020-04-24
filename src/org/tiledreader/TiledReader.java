@@ -47,7 +47,9 @@ import javax.xml.stream.XMLStreamReader;
  * reference the same external tileset or object template file, the external
  * file will not be wastefully parsed and stored in memory multiple times.
  * However, the TiledReader class also contains static methods that can be
- * called manually to erase these records.</p>
+ * called manually to remove these pointers. Removing the pointer to a
+ * no-longer-needed resource object is necessary to make the object vulnerable
+ * to the Java garbage collector.</p>
  * 
  * <p>TiledReader does not support image data embedded directly in TMX/TSX
  * files. As of Tiled version 1.3.3, however, it is not possible to embed image
@@ -363,7 +365,7 @@ public final class TiledReader {
     
     private static class ResourceData {
         
-        private Object resource = null;
+        private TiledResource resource = null;
         private Set<File> referToThis = new HashSet<>();
         private Set<File> referencedByThis = new HashSet<>();
         

@@ -11,9 +11,9 @@ import java.util.Map;
  * a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledObjectTemplate {
+public class TiledObjectTemplate extends TiledResource {
     
-    private final String path, name, type;
+    private final String name, type;
     private final float width, height, rotation;
     private final TiledTile tile;
     private final boolean visible;
@@ -25,7 +25,7 @@ public class TiledObjectTemplate {
     TiledObjectTemplate(String path, String name, String type, float width, float height, float rotation,
             TiledTile tile, boolean visible, TiledObject.Shape shape, List<Point2D> points, TiledText text,
             Map<String,Object> properties) {
-        this.path = path;
+        super(path);
         this.name = name;
         this.type = type;
         this.width = width;
@@ -38,18 +38,6 @@ public class TiledObjectTemplate {
         this.text = text;
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
-    }
-    
-    /**
-     * Returns the path to the TX file from which this template was read. If
-     * this template was returned by a call to TiledReader.getTemplate(), the
-     * String returned by this method may not be equal to the path argument
-     * passed to TiledReader.getTemplate(). However, both path Strings are
-     * guaranteed to point to the same file.
-     * @return The path to the TX file from which this template was read
-     */
-    public final String getPath() {
-        return path;
     }
     
     /**
