@@ -1777,7 +1777,7 @@ public final class TiledReader {
                                 flags = new HashMap<>();
                                 for (Map.Entry<Point,Integer> entry : data.entrySet()) {
                                     Point point = entry.getKey();
-                                    Integer value = entry.getValue();
+                                    int value = entry.getValue();
                                     
                                     int gid = value & ~FL_DATA_ALL;
                                     TiledTile tile = tileData.gidTiles.get(gid);

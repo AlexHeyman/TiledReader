@@ -16,13 +16,37 @@ public class TiledTileLayer extends TiledLayer {
     static final byte FL_FLIPY = 1 << 1;
     static final byte FL_FLIPD = 1 << 2;
     
+    private int x1, y1, x2, y2;
     private final Map<Point,TiledTile> tiles;
     private final Map<Point,Integer> flags;
     
     TiledTileLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
             float relOffsetX, float relOffsetY, Map<Point,TiledTile> tiles, Map<Point,Integer> flags) {
         super(name, parent, relOpacity, relVisible, relOffsetX, relOffsetY);
-        this.tiles = (tiles == null ? Collections.emptyMap() : Collections.unmodifiableMap(tiles));
+        x1 = 0;
+        y1 = 0;
+        x2 = -1;
+        y2 = -1;
+        if (tiles == null) {
+            this.tiles = Collections.emptyMap();
+        } else {
+            this.tiles = Collections.unmodifiableMap(tiles);
+            boolean firstTile = true;
+            for (Point point : tiles.keySet()) {
+                if (firstTile) {
+                    firstTile = false;
+                    x1 = point.x;
+                    y1 = point.y;
+                    x2 = point.x;
+                    y2 = point.y;
+                } else {
+                    x1 = Math.min(x1, point.x);
+                    y1 = Math.min(y1, point.y);
+                    x2 = Math.max(x2, point.x);
+                    y2 = Math.max(y2, point.y);
+                }
+            }
+        }
         this.flags = (flags == null ? Collections.emptyMap() : Collections.unmodifiableMap(flags));
     }
     
@@ -33,6 +57,42 @@ public class TiledTileLayer extends TiledLayer {
      */
     public final Set<Point> getTileLocations() {
         return tiles.keySet();
+    }
+    
+    /**
+     * Returns the lowest x-coordinate in tiles of any tile in this tile layer,
+     * or 0 if this tile layer has no tiles.
+     * @return The lowest x-coordinate in tiles of any tile in this tile layer
+     */
+    public final int getX1() {
+        return x1;
+    }
+    
+    /**
+     * Returns the lowest y-coordinate in tiles of any tile in this tile layer,
+     * or 0 if this tile layer has no tiles.
+     * @return The lowest y-coordinate in tiles of any tile in this tile layer
+     */
+    public final int getY1() {
+        return y1;
+    }
+    
+    /**
+     * Returns the highest x-coordinate in tiles of any tile in this tile layer,
+     * or -1 if this tile layer has no tiles.
+     * @return The highest x-coordinate in tiles of any tile in this tile layer
+     */
+    public final int getX2() {
+        return x2;
+    }
+    
+    /**
+     * Returns the highest y-coordinate in tiles of any tile in this tile layer,
+     * or -1 if this tile layer has no tiles.
+     * @return The highest y-coordinate in tiles of any tile in this tile layer
+     */
+    public final int getY2() {
+        return y2;
     }
     
     /**
