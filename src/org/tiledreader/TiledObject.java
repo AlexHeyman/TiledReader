@@ -60,7 +60,7 @@ public class TiledObject {
     }
     
     /**
-     * Returns this object's type, (the empty string by default).
+     * Returns this object's type (the empty string by default).
      * @return This object's type
      */
     public final String getType() {
