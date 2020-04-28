@@ -41,7 +41,7 @@ public class TiledImage {
     }
     
     /**
-     * Returns this image's width, or 0 if it was not specified.
+     * Returns this image's width, or -1 if it was not specified.
      * @return This image's width
      */
     public final int getWidth() {
@@ -49,7 +49,7 @@ public class TiledImage {
     }
     
     /**
-     * Returns this image's height, or 0 if it was not specified.
+     * Returns this image's height, or -1 if it was not specified.
      * @return This image's height
      */
     public final int getHeight() {

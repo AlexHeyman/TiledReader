@@ -1335,8 +1335,8 @@ public final class TiledReader {
         Map<String,String> attributeValues = getAttributeValues(reader, IMAGE_ATTRIBUTES);
         
         Color trans = parseColor(reader, "trans", attributeValues.get("trans"), true, null);
-        int width = parseInt(reader, "width", attributeValues.get("width"), true, 0);
-        int height = parseInt(reader, "height", attributeValues.get("height"), true, 0);
+        int width = parseInt(reader, "width", attributeValues.get("width"), true, -1);
+        int height = parseInt(reader, "height", attributeValues.get("height"), true, -1);
         
         //Image image;
         String source;
