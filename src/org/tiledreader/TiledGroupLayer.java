@@ -28,7 +28,7 @@ public class TiledGroupLayer extends TiledLayer {
     
     /**
      * Returns an unmodifiable List view of the layers contained in this group
-     * layer, ordered from back to front.
+     * layer, sorted from back to front in terms of rendering order.
      * @return The layers in this group layer
      */
     public final List<TiledLayer> getChildren() {

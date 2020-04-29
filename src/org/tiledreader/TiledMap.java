@@ -50,13 +50,14 @@ public class TiledMap extends TiledResource {
     private final StaggerIndex staggerIndex;
     private final Color backgroundColor;
     private final List<TiledTileset> tilesets;
-    private final List<TiledLayer> layers;
+    private final List<TiledLayer> topLevelLayers, nonGroupLayers;
     private final Map<String,Object> properties;
     
     TiledMap(String path, Orientation orientation, RenderOrder renderOrder,
             int width, int height, int tileWidth, int tileHeight, int hexSideLength,
             StaggerAxis staggerAxis, StaggerIndex staggerIndex, Color backgroundColor,
-            List<TiledTileset> tilesets, List<TiledLayer> layers, Map<String,Object> properties) {
+            List<TiledTileset> tilesets, List<TiledLayer> topLevelLayers, List<TiledLayer> nonGroupLayers,
+            Map<String,Object> properties) {
         super(path);
         this.orientation = orientation;
         this.renderOrder = renderOrder;
@@ -69,7 +70,8 @@ public class TiledMap extends TiledResource {
         this.staggerIndex = staggerIndex;
         this.backgroundColor = backgroundColor;
         this.tilesets = Collections.unmodifiableList(tilesets);
-        this.layers = Collections.unmodifiableList(layers);
+        this.topLevelLayers = Collections.unmodifiableList(topLevelLayers);
+        this.nonGroupLayers = Collections.unmodifiableList(nonGroupLayers);
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
@@ -176,17 +178,26 @@ public class TiledMap extends TiledResource {
     }
     
     /**
-     * Returns an unmodifiable List view of this map's layers, in order from
-     * back to front in terms of rendering order. The returned List includes
-     * both group layers and the layers that are children of group layers, with
-     * group layers appearing in the List before their children. To get only the
-     * "top-level" layers that are not children of group layers, iterate through
-     * the List and ignore any layer whose getParent() method does not return
-     * null.
-     * @return This map's layers
+     * Returns an unmodifiable List view of all of this map's layers that are
+     * not descendants of group layers, sorted from back to front in terms of
+     * rendering order. To explore the hierarchy of all of this map's layers,
+     * you can iterate through this list and, whenever you encounter a group
+     * layer, recursively explore the list of its child layers.
+     * @return This map's top-level layers
      */
-    public final List<TiledLayer> getLayers() {
-        return layers;
+    public final List<TiledLayer> getTopLevelLayers() {
+        return nonGroupLayers;
+    }
+    
+    /**
+     * Returns an unmodifiable List view of all of this map's layers that are
+     * not group layers, sorted from back to front in terms of rendering order.
+     * These layers are the ones that contain actual content, as group layers
+     * are just an organizational tool.
+     * @return This map's non-group layers
+     */
+    public final List<TiledLayer> getNonGroupLayers() {
+        return nonGroupLayers;
     }
     
     /**

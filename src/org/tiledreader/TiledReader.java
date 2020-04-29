@@ -1010,11 +1010,13 @@ public final class TiledReader {
         
         Map<String,Object> properties = null;
         MapTileData tileData = new MapTileData();
-        List<TiledLayer> layers = new ArrayList<>();
+        List<TiledLayer> topLevelLayers = new ArrayList<>();
+        List<TiledLayer> nonGroupLayers = new ArrayList<>();
         Set<Integer> readLayerIDs = new HashSet<>();
         List<Pair<TiledObject,Integer>> tileObjectsToResolve = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
+            TiledLayer layer = null;
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
@@ -1033,18 +1035,18 @@ public final class TiledReader {
                             tileData.tilesets.add(readTMXTileset(file, reader));
                             break;
                         case "layer":
-                            readLayer(file, reader, layers, readLayerIDs, null, tileData);
+                            layer = readLayer(file, reader, nonGroupLayers, readLayerIDs, null, tileData);
                             break;
                         case "objectgroup":
-                            readMapObjectGroup(
-                                    file, reader, layers, readLayerIDs, null, tileObjectsToResolve);
+                            layer = readMapObjectGroup(file, reader, nonGroupLayers,
+                                    readLayerIDs, null, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            readImageLayer(file, reader, layers, readLayerIDs, null);
+                            layer = readImageLayer(file, reader, nonGroupLayers, readLayerIDs, null);
                             break;
                         case "group":
-                            readGroup(file, reader,
-                                    layers, readLayerIDs, null, tileData, tileObjectsToResolve);
+                            layer = readGroup(file, reader, nonGroupLayers,
+                                    readLayerIDs, null, tileData, tileObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -1058,6 +1060,9 @@ public final class TiledReader {
                     ignoreUnexpectedEvent(reader);
                     break;
             }
+            if (layer != null) {
+                topLevelLayers.add(layer);
+            }
         }
         
         List<TiledTileset> mapTilesets = new ArrayList<>(tileData.tilesets.size());
@@ -1066,7 +1071,7 @@ public final class TiledReader {
         }
         return new TiledMap(file.getPath(), orientation, renderOrder, width, height,
                 tileWidth, tileHeight, hexSideLength, staggerAxis, staggerIndex, backgroundColor,
-                mapTilesets, layers, properties);
+                mapTilesets, topLevelLayers, nonGroupLayers, properties);
     }
     
     private static TiledTileset readTileset(File file, boolean fileIsTSX, XMLStreamReader reader,
@@ -1718,9 +1723,9 @@ public final class TiledReader {
         }
     }
     
-    private static void readLayer(File file, XMLStreamReader reader, List<TiledLayer> layers,
-            Set<Integer> readLayerIDs, TiledGroupLayer parent, MapTileData tileData)
-            throws XMLStreamException {
+    private static TiledTileLayer readLayer(File file, XMLStreamReader reader,
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs,
+            TiledGroupLayer parent, MapTileData tileData) throws XMLStreamException {
         if (tileData.gidTiles == null) {
             tileData.gidTiles = new HashMap<>();
             for (Pair<TiledTileset,Integer> pair : tileData.tilesets) {
@@ -1742,7 +1747,7 @@ public final class TiledReader {
         int id = parseInt(reader, "id", attributeValues.get("id"));
         if (!readLayerIDs.add(id)) {
             ignoreRedundantTag(reader);
-            return;
+            return null;
         }
         
         String name = attributeValues.get("name");
@@ -1820,7 +1825,8 @@ public final class TiledReader {
         TiledTileLayer layer = new TiledTileLayer(
                 name, parent, opacity, visible, offsetX, offsetY, tiles, flags);
         layer.setProperties(properties);
-        layers.add(layer);
+        nonGroupLayers.add(layer);
+        return layer;
     }
     
     private static int[][] decodeTileData(XMLStreamReader reader, String dataStr,
@@ -2098,15 +2104,15 @@ public final class TiledReader {
         return gid;
     }
     
-    private static void readMapObjectGroup(File file, XMLStreamReader reader,
-            List<TiledLayer> layers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
+    private static TiledObjectLayer readMapObjectGroup(File file, XMLStreamReader reader,
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
             List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, MAP_OBJECTGROUP_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
         if (!readLayerIDs.add(id)) {
             ignoreRedundantTag(reader);
-            return;
+            return null;
         }
         
         String name = attributeValues.get("name");
@@ -2154,7 +2160,8 @@ public final class TiledReader {
         TiledObjectLayer layer = new TiledObjectLayer(
                 name, parent, opacity, visible, offsetX, offsetY, color, objects);
         layer.setProperties(properties);
-        layers.add(layer);
+        nonGroupLayers.add(layer);
+        return layer;
     }
     
     private static List<TiledObject> readTileObjectGroup(File file, XMLStreamReader reader)
@@ -2452,14 +2459,15 @@ public final class TiledReader {
         return data;
     }
     
-    private static void readImageLayer(File file, XMLStreamReader reader, List<TiledLayer> layers,
-            Set<Integer> readLayerIDs, TiledGroupLayer parent) throws XMLStreamException {
+    private static TiledImageLayer readImageLayer(File file, XMLStreamReader reader,
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs,
+            TiledGroupLayer parent) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, IMAGELAYER_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
         if (!readLayerIDs.add(id)) {
             ignoreRedundantTag(reader);
-            return;
+            return null;
         }
         
         String name = attributeValues.get("name");
@@ -2507,18 +2515,20 @@ public final class TiledReader {
         
         TiledImageLayer layer = new TiledImageLayer(name, parent, opacity, visible, offsetX, offsetY, image);
         layer.setProperties(properties);
-        layers.add(layer);
+        nonGroupLayers.add(layer);
+        return layer;
     }
     
-    private static void readGroup(File file, XMLStreamReader reader, List<TiledLayer> layers,
-            Set<Integer> readLayerIDs, TiledGroupLayer parent, MapTileData tileData,
-            List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
+    private static TiledGroupLayer readGroup(File file, XMLStreamReader reader,
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
+            MapTileData tileData, List<Pair<TiledObject,Integer>> tileObjectsToResolve)
+            throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, GROUP_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
         if (!readLayerIDs.add(id)) {
             ignoreRedundantTag(reader);
-            return;
+            return null;
         }
         
         String name = attributeValues.get("name");
@@ -2543,18 +2553,18 @@ public final class TiledReader {
                             }
                             break;
                         case "layer":
-                            readLayer(file, reader, layers, readLayerIDs, group, tileData);
+                            readLayer(file, reader, nonGroupLayers, readLayerIDs, group, tileData);
                             break;
                         case "objectgroup":
                             readMapObjectGroup(
-                                    file, reader, layers, readLayerIDs, group, tileObjectsToResolve);
+                                    file, reader, nonGroupLayers, readLayerIDs, group, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            readImageLayer(file, reader, layers, readLayerIDs, group);
+                            readImageLayer(file, reader, nonGroupLayers, readLayerIDs, group);
                             break;
                         case "group":
                             readGroup(file, reader,
-                                    layers, readLayerIDs, group, tileData, tileObjectsToResolve);
+                                    nonGroupLayers, readLayerIDs, group, tileData, tileObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2572,7 +2582,8 @@ public final class TiledReader {
         
         group.finalizeChildren();
         group.setProperties(properties);
-        layers.add(group);
+        nonGroupLayers.add(group);
+        return group;
     }
     
     private static Map<String,Object> readProperties(File file, XMLStreamReader reader)
