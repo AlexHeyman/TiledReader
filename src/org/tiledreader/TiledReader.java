@@ -1868,10 +1868,9 @@ public final class TiledReader {
                         + " bytes, got " + dataSize + " bytes)");
             }
             int k = 0;
-            for (int i = 0; i < width; i++) {
-                int[] column = data[i];
-                for (int j = 0; j < height; j++) {
-                    column[j] = bytes[k] + (((int)bytes[k + 1]) << 8)
+            for (int j = 0; j < height; j++) {
+                for (int i = 0; i < width; i++) {
+                    data[i][j] = bytes[k] + (((int)bytes[k + 1]) << 8)
                             + (((int)bytes[k + 2]) << 16) + (((int)bytes[k + 3]) << 24);
                     k += 4;
                 }
@@ -1885,11 +1884,10 @@ public final class TiledReader {
                         + " values, got " + values.length + " values)");
             }
             int k = 0;
-            for (int i = 0; i < width; i++) {
-                int[] column = data[i];
-                for (int j = 0; j < height; j++) {
+            for (int j = 0; j < height; j++) {
+                for (int i = 0; i < width; i++) {
                     try {
-                        column[j] = Integer.parseUnsignedInt(values[k].trim());
+                        data[i][j] = Integer.parseUnsignedInt(values[k].trim());
                     } catch (NumberFormatException e) {
                         throw new XMLStreamException(describeReaderLocation(reader)
                                 + ": CSV-encoded embedded tile data contains a value (" + values[k]
