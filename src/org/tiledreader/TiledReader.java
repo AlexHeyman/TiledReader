@@ -1761,6 +1761,10 @@ public final class TiledReader {
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
         
         Map<String,Object> properties = null;
+        int x1 = 0;
+        int y1 = 0;
+        int x2 = -1;
+        int y2 = -1;
         Map<Point,TiledTile> tiles = null;
         Map<Point,Integer> flags = null;
         OUTER: while (true) {
@@ -1782,6 +1786,18 @@ public final class TiledReader {
                                 flags = new HashMap<>();
                                 for (Map.Entry<Point,Integer> entry : data.entrySet()) {
                                     Point point = entry.getKey();
+                                    if (x1 == 0 && x2 == -1) {
+                                        x1 = point.x;
+                                        y1 = point.y;
+                                        x2 = point.x;
+                                        y2 = point.y;
+                                    } else {
+                                        x1 = Math.min(x1, point.x);
+                                        y1 = Math.min(y1, point.y);
+                                        x2 = Math.max(x2, point.x);
+                                        y2 = Math.max(y2, point.y);
+                                    }
+                                    
                                     int value = entry.getValue();
                                     
                                     int gid = value & ~FL_DATA_ALL;
@@ -1822,8 +1838,17 @@ public final class TiledReader {
             }
         }
         
-        TiledTileLayer layer = new TiledTileLayer(
-                name, parent, opacity, visible, offsetX, offsetY, tiles, flags);
+        int layerArea = (x2 - x1 + 1)*(y2 - y1 + 1);
+        TiledTileLayer layer;
+        if (tiles != null && tiles.size() < ((double)layerArea)/4) {
+            //Layer's tiles are sparse; represent it with a HashTileLayer
+            layer = new HashTileLayer(name, parent, opacity, visible, offsetX, offsetY,
+                    x1, y1, x2, y2, tiles, flags);
+        } else {
+            //Layer's tiles are dense; represent it with an ArrayTileLayer
+            layer = new ArrayTileLayer(name, parent, opacity, visible, offsetX, offsetY,
+                    x1, y1, x2, y2, tiles, flags);
+        }
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
         return layer;
@@ -1945,7 +1970,10 @@ public final class TiledReader {
                             for (int k = 0; k < chunk.width; k++) {
                                 int[] column = chunk.data[k];
                                 for (int m = 0; m < chunk.height; m++) {
-                                    data.put(new Point(chunk.x + k, chunk.y + m), column[m]);
+                                    int value = column[m];
+                                    if (value != 0) {
+                                        data.put(new Point(chunk.x + k, chunk.y + m), value);
+                                    }
                                 }
                             }
                             break;
@@ -1989,7 +2017,10 @@ public final class TiledReader {
             for (int k = 0; k < width; k++) {
                 int[] column = decodedData[k];
                 for (int m = 0; m < height; m++) {
-                    data.put(new Point(x + k, y + m), column[m]);
+                    int value = column[m];
+                    if (value != 0) {
+                        data.put(new Point(x + k, y + m), value);
+                    }
                 }
             }
         }
