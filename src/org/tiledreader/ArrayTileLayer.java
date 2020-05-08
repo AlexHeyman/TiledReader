@@ -8,12 +8,13 @@ import java.util.Set;
 
 /**
  * <p>An ArrayTileLayer is a type of TiledTileLayer that stores its tile data in
- * a rectangular two-dimensional array. An ArrayTileLayer's memory usage is
- * proportional to the area of the smallest rectangle that fits around all of
- * the tiles of the tile layer it represents. The TiledReader class
- * automatically chooses whether to represent each tile layer it reads with an
- * ArrayTileLayer or a HashTileLayer, based on an estimate of which would use
- * less memory.</p>
+ * a rectangular two-dimensional array. An ArrayTileLayer's memory usage, and
+ * the time needed to iterate through the set of its tile locations, are both
+ * proportional to the area in square tiles of the smallest rectangle that fits
+ * around all of the tiles in the tile layer it represents. The TiledReader
+ * class automatically chooses whether to represent each tile layer it reads
+ * with an ArrayTileLayer or a HashTileLayer, based on an estimate of which
+ * would use less memory.</p>
  * @author Alex Heyman
  */
 public class ArrayTileLayer extends TiledTileLayer {
