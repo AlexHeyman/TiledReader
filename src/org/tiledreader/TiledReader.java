@@ -908,21 +908,24 @@ public final class TiledReader {
                 throwMissingAttributeException(reader, attribute);
             }
         }
-        if ((value.length() == 7 || value.length() == 9) && value.charAt(0) == '#') {
-            int[] values = new int[(value.length() - 1)/2];
-            for (int i = 0; i < values.length; i++) {
-                int upper = parseHexDigit(value.charAt(2*i + 1));
-                int lower = parseHexDigit(value.charAt(2*i + 2));
-                if (upper == -1 || lower == -1) {
-                    throwInvalidValueException(reader, attribute, value,
-                            "value must be a valid #RRGGBB or #AARRGGBB color code");
+        if (value.length() >= 1) {
+            String hexDigits = (value.charAt(0) == '#' ? value.substring(1) : value);
+            if (hexDigits.length() == 6 || hexDigits.length() == 8) {
+                int[] values = new int[hexDigits.length()/2];
+                for (int i = 0; i < values.length; i++) {
+                    int upper = parseHexDigit(hexDigits.charAt(2*i));
+                    int lower = parseHexDigit(hexDigits.charAt(2*i + 1));
+                    if (upper == -1 || lower == -1) {
+                        throwInvalidValueException(reader, attribute, value,
+                                "value must be a valid #RRGGBB or #AARRGGBB color code");
+                    }
+                    values[i] = (upper << 4) + lower;
                 }
-                values[i] = (upper << 4) + lower;
-            }
-            if (value.length() == 7) {
-                return new Color(values[0], values[1], values[2]);
-            } else {
-                return new Color(values[1], values[2], values[3], values[0]);
+                if (values.length == 3) {
+                    return new Color(values[0], values[1], values[2]);
+                } else {
+                    return new Color(values[1], values[2], values[3], values[0]);
+                }
             }
         }
         throwInvalidValueException(reader, attribute, value,
