@@ -366,8 +366,8 @@ public final class TiledReader {
     private static class ResourceData {
         
         private TiledResource resource = null;
-        private Set<File> referToThis = new HashSet<>();
-        private Set<File> referencedByThis = new HashSet<>();
+        private final Set<File> referToThis = new HashSet<>();
+        private final Set<File> referencedByThis = new HashSet<>();
         
     }
     
