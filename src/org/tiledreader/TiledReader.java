@@ -582,9 +582,9 @@ public final class TiledReader {
      * @param cleanUp If true, also remove the pointers to all of the resources
      * referenced by the resource from the specified file, and not referenced by
      * any of the other resources that the TiledReader class still points to.
-     * cleanUp applies recursively, so if the removal of any of these "orphaned"
-     * resources causes more resources to be orphaned, those will be removed as
-     * well.
+     * This parameter applies recursively, so if the removal of any of these
+     * "orphaned" resources causes more resources to be orphaned, those will be
+     * removed as well.
      * @return Whether the specified file had been read before this method was
      * called, and hence whether the removal occurred
      */
