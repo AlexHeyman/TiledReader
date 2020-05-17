@@ -117,7 +117,7 @@ public final class TiledReader {
     private static final Map<String,Boolean> MAP_ATTRIBUTES = new HashMap<>();
     static {
         MAP_ATTRIBUTES.put("version", true);
-        MAP_ATTRIBUTES.put("tiledversion", true);
+        MAP_ATTRIBUTES.put("tiledversion", false);
         MAP_ATTRIBUTES.put("orientation", true);
         MAP_ATTRIBUTES.put("renderorder", true);
         MAP_ATTRIBUTES.put("width", true);
@@ -157,7 +157,7 @@ public final class TiledReader {
     private static final Map<String,Boolean> TSX_TILESET_ATTRIBUTES = new HashMap<>(TILESET_ATTRIBUTES);
     static {
         TSX_TILESET_ATTRIBUTES.put("version", true);
-        TSX_TILESET_ATTRIBUTES.put("tiledversion", true);
+        TSX_TILESET_ATTRIBUTES.put("tiledversion", false);
     }
     
     private static final Map<String,Boolean> TX_TILESET_ATTRIBUTES = new HashMap<>();
