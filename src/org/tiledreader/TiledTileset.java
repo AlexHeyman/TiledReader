@@ -29,14 +29,14 @@ public class TiledTileset extends TiledResource {
     private final GridOrientation gridOrientation;
     private final int gridWidth, gridHeight;
     private final TiledImage image;
-    private final Map<String,TiledTerrainType> terrainTypes;
+    private final List<TiledTerrainType> terrainTypes;
     private final List<TiledWangSet> wangSets;
     private final Map<String,Object> properties;
     
     TiledTileset(String path, String name, int tileWidth, int tileHeight, int spacing, int margin,
             SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
             GridOrientation gridOrientation, int gridWidth, int gridHeight, TiledImage image,
-            Map<String,TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
+            List<TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
             Map<String,Object> properties) {
         super(path);
         this.name = name;
@@ -75,7 +75,7 @@ public class TiledTileset extends TiledResource {
         this.gridHeight = gridHeight;
         this.image = image;
         this.terrainTypes = (terrainTypes == null ?
-                Collections.emptyMap() : Collections.unmodifiableMap(terrainTypes));
+                Collections.emptyList() : Collections.unmodifiableList(terrainTypes));
         this.wangSets = (wangSets == null ?
                 Collections.emptyList() : Collections.unmodifiableList(wangSets));
         this.properties = (properties == null ?
@@ -244,12 +244,10 @@ public class TiledTileset extends TiledResource {
     }
     
     /**
-     * Returns an unmodifiable Map view of this tileset's terrain types. Each
-     * key in the Map is the name of a terrain type, and its corresponding value
-     * is that terrain type itself.
+     * Returns an unmodifiable List view of this tileset's terrain types.
      * @return This tileset's terrain types
      */
-    public final Map<String,TiledTerrainType> getTerrainTypes() {
+    public final List<TiledTerrainType> getTerrainTypes() {
         return terrainTypes;
     }
     

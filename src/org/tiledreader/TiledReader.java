@@ -116,7 +116,7 @@ public final class TiledReader {
     
     private static final Map<String,Boolean> MAP_ATTRIBUTES = new HashMap<>();
     static {
-        MAP_ATTRIBUTES.put("version", true);
+        MAP_ATTRIBUTES.put("version", false);
         MAP_ATTRIBUTES.put("tiledversion", false);
         MAP_ATTRIBUTES.put("orientation", true);
         MAP_ATTRIBUTES.put("renderorder", true);
@@ -156,7 +156,7 @@ public final class TiledReader {
     
     private static final Map<String,Boolean> TSX_TILESET_ATTRIBUTES = new HashMap<>(TILESET_ATTRIBUTES);
     static {
-        TSX_TILESET_ATTRIBUTES.put("version", true);
+        TSX_TILESET_ATTRIBUTES.put("version", false);
         TSX_TILESET_ATTRIBUTES.put("tiledversion", false);
     }
     
@@ -753,7 +753,11 @@ public final class TiledReader {
     }
     
     private static void checkVersion(XMLStreamReader reader, String version) {
-        if (!version.equals(TMX_VERSION)) {
+        if (version == null) {
+            LOGGER.log(Level.WARNING, "{0}: No TMX format version specified (expected version: {1})."
+                    + " Parsing errors may occur.",
+                    new Object[]{describeReaderLocation(reader), TMX_VERSION});
+        } else if (!version.equals(TMX_VERSION)) {
             LOGGER.log(Level.WARNING, "{0}: Specified TMX format version ({1}) does not match expected"
                     + " version ({2}). Parsing errors may occur.",
                     new Object[]{describeReaderLocation(reader), version, TMX_VERSION});
@@ -1107,10 +1111,10 @@ public final class TiledReader {
         
         Map<String,Object> properties = null;
         TiledImage image = null;
-        Map<String,TiledTerrainType> terrainTypes = null;
+        List<TiledTerrainType> terrainTypes = null;
         SortedMap<Integer,TiledTile> idTiles = new TreeMap<>();
         Set<Integer> readTileIDs = new HashSet<>();
-        Map<Integer,String[]> readTileTerrainTypes = new HashMap<>();
+        Map<Integer,Integer[]> tileTerrainTypes = new HashMap<>();
         List<TiledWangSet> wangSets = null;
         OUTER: while (true) {
             next(reader);
@@ -1160,7 +1164,7 @@ public final class TiledReader {
                             }
                             break;
                         case "tile":
-                            readTilesetTile(file, reader, idTiles, readTileIDs, readTileTerrainTypes);
+                            readTilesetTile(file, reader, idTiles, readTileIDs, tileTerrainTypes);
                             break;
                         case "wangsets":
                             if (wangSets == null) {
@@ -1235,17 +1239,17 @@ public final class TiledReader {
             for (Map.Entry<Integer,TiledTile> entry : idTiles.entrySet()) {
                 int id = entry.getKey();
                 TiledTile tile = entry.getValue();
-                for (int ttIndex = 0; ttIndex < 4; ttIndex++) {
-                    String ttName = readTileTerrainTypes.get(id)[ttIndex];
-                    if (ttName.isEmpty()) {
+                for (int cornerIndex = 0; cornerIndex < 4; cornerIndex++) {
+                    Integer ttIndex = tileTerrainTypes.get(id)[cornerIndex];
+                    if (ttIndex == null) {
                         continue; //No terrain type at this corner
                     }
-                    TiledTerrainType terrainType = terrainTypes.get(ttName);
-                    if (terrainType == null) {
+                    if (ttIndex < 0 || ttIndex >= terrainTypes.size()) {
                         throw new XMLStreamException(describeReaderLocation(reader) + ": <tile> tag with ID "
-                                + id + " has invalid terrain type (" + ttName + ")");
+                                + id + " has invalid terrain type index (" + ttIndex + ")");
                     }
-                    tile.terrainTypes[ttIndex] = terrainType;
+                    TiledTerrainType terrainType = terrainTypes.get(ttIndex);
+                    tile.terrainTypes[cornerIndex] = terrainType;
                 }
             }
         }
@@ -1379,10 +1383,10 @@ public final class TiledReader {
         return source;
     }
     
-    private static Map<String,TiledTerrainType> readTerrainTypes(XMLStreamReader reader,
+    private static List<TiledTerrainType> readTerrainTypes(XMLStreamReader reader,
             Map<Integer,TiledTile> idTiles) throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
-        Map<String,TiledTerrainType> terrainTypes = new HashMap<>();
+        List<TiledTerrainType> terrainTypes = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
@@ -1408,18 +1412,10 @@ public final class TiledReader {
     }
     
     private static void readTerrain(XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Map<String,TiledTerrainType> terrainTypes) throws XMLStreamException {
-        Map<String,String> attributeValues = getAttributeValues(reader, IMAGE_ATTRIBUTES);
+            List<TiledTerrainType> terrainTypes) throws XMLStreamException {
+        Map<String,String> attributeValues = getAttributeValues(reader, TERRAIN_ATTRIBUTES);
         
         String name = attributeValues.get("name");
-        if (name.isEmpty()) {
-            throw new XMLStreamException(describeReaderLocation(reader)
-                    + ": <terrain> tag's name attribute is the empty string");
-        }
-        if (terrainTypes.get(name) != null) {
-            ignoreRedundantTag(reader);
-            return;
-        }
         
         String tileIDStr = attributeValues.get("tile");
         int tileID = parseInt(reader, "tile", tileIDStr);
@@ -1429,11 +1425,11 @@ public final class TiledReader {
         TiledTile tile = getTile(idTiles, tileID);
         
         finishTag(reader);
-        terrainTypes.put(name, new TiledTerrainType(name, tile));
+        terrainTypes.add(new TiledTerrainType(name, tile));
     }
     
     private static void readTilesetTile(File file, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Set<Integer> readTileIDs, Map<Integer,String[]> readTileTerrainTypes) throws XMLStreamException {
+            Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TILESET_TILE_ATTRIBUTES);
         
         String idStr = attributeValues.get("id");
@@ -1450,24 +1446,31 @@ public final class TiledReader {
         tile.type = attributeValues.get("type");
         
         String terrain = attributeValues.get("terrain");
-        String[] terrainTypes = new String[4];
-        readTileTerrainTypes.put(id, terrainTypes);
+        Integer[] terrainTypes = new Integer[4];
+        tileTerrainTypes.put(id, terrainTypes);
         if (terrain != null) {
-            int ttIndex = 0;
+            int cornerIndex = 0;
             int startOfSubstring = 0;
             for (int i = 0; i <= terrain.length(); i++) {
                 if (i == terrain.length() || terrain.charAt(i) == ',') {
-                    if (ttIndex == 4) {
+                    if (cornerIndex == 4) {
                         throw new XMLStreamException(describeReaderLocation(reader)
                                 + ": Value of <tile> tag's terrain attribute (" + terrain
                                 + ") contains more than 4 comma-separated values");
                     }
-                    terrainTypes[ttIndex] = terrain.substring(startOfSubstring, i).trim();
-                    ttIndex++;
+                    try {
+                        terrainTypes[cornerIndex] = Integer.parseInt(
+                                terrain.substring(startOfSubstring, i).trim());
+                    } catch (NumberFormatException e) {
+                        throw new XMLStreamException(describeReaderLocation(reader)
+                                + ": Value of <tile> tag's terrain attribute (" + terrain
+                                + ") contains a non-integer value");
+                    }
+                    cornerIndex++;
                     startOfSubstring = i + 1;
                 }
             }
-            if (ttIndex != 4) {
+            if (cornerIndex != 4) {
                 throw new XMLStreamException(describeReaderLocation(reader)
                         + ": Value of <tile> tag's terrain attribute (" + terrain
                         + ") contains fewer than 4 comma-separated values");
