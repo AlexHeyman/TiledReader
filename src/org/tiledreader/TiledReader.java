@@ -119,7 +119,7 @@ public final class TiledReader {
         MAP_ATTRIBUTES.put("version", false);
         MAP_ATTRIBUTES.put("tiledversion", false);
         MAP_ATTRIBUTES.put("orientation", true);
-        MAP_ATTRIBUTES.put("renderorder", true);
+        MAP_ATTRIBUTES.put("renderorder", false);
         MAP_ATTRIBUTES.put("width", true);
         MAP_ATTRIBUTES.put("height", true);
         MAP_ATTRIBUTES.put("tilewidth", true);
@@ -991,8 +991,11 @@ public final class TiledReader {
         
         TiledMap.Orientation orientation = parseEnumValue(TiledMap.Orientation.class,
                 reader, "orientation", attributeValues.get("orientation"));
-        TiledMap.RenderOrder renderOrder = parseEnumValue(TiledMap.RenderOrder.class,
-                reader, "renderorder", attributeValues.get("renderorder").replace('-', '_'));
+        
+        String renderOrderStr = attributeValues.get("renderorder");
+        TiledMap.RenderOrder renderOrder = (renderOrderStr == null ? TiledMap.RenderOrder.RIGHT_DOWN
+                : parseEnumValue(TiledMap.RenderOrder.class,
+                reader, "renderorder", renderOrderStr.replace('-', '_')));
         
         int width = parseInt(reader, "width", attributeValues.get("width"));
         int height = parseInt(reader, "height", attributeValues.get("height"));
