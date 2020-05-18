@@ -351,10 +351,10 @@ public final class TiledReader {
         PROPERTY_ATTRIBUTES.put("value", false);
     }
     
-    private static final int FL_DATA_FLIPX = 0x80000000;
-    private static final int FL_DATA_FLIPY = 0x40000000;
-    private static final int FL_DATA_FLIPD = 0x20000000;
-    private static final int FL_DATA_ALL = FL_DATA_FLIPX | FL_DATA_FLIPY | FL_DATA_FLIPD;
+    private static final int FL_TILE_FLIPX = 0x80000000;
+    private static final int FL_TILE_FLIPY = 0x40000000;
+    private static final int FL_TILE_FLIPD = 0x20000000;
+    private static final int FL_TILE_ALL = FL_TILE_FLIPX | FL_TILE_FLIPY | FL_TILE_FLIPD;
     
     private static final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     static {
@@ -964,6 +964,23 @@ public final class TiledReader {
         private List<Pair<TiledTileset,Integer>> tilesets = new ArrayList<>();
         private Map<Integer,TiledTile> gidTiles = null;
         
+        private void initGIDTiles() throws XMLStreamException {
+            gidTiles = new HashMap<>();
+            for (Pair<TiledTileset,Integer> pair : tilesets) {
+                TiledTileset tileset = pair.getKey();
+                int firstGID = pair.getValue();
+                for (TiledTile tile : tileset.getTiles()) {
+                    int id = tile.getID();
+                    int gid = firstGID + id;
+                    if (gidTiles.put(gid, tile) != null) {
+                        throw new XMLStreamException("Tileset with first global ID " + firstGID
+                                + " contains a tile with local ID " + id + " and thus global ID " + gid
+                                + ", conflicting with a tile with that same global ID from another tileset");
+                    }
+                }
+            }
+        }
+        
     }
     
     private static TiledMap readMap(File file, XMLStreamReader reader) throws XMLStreamException {
@@ -1076,6 +1093,14 @@ public final class TiledReader {
         for (Pair<TiledTileset,Integer> pair : tileData.tilesets) {
             mapTilesets.add(pair.getKey());
         }
+        
+        if (tileData.gidTiles == null) {
+            tileData.initGIDTiles();
+        }
+        for (Pair<TiledObject,Integer> pair : tileObjectsToResolve) {
+            pair.getKey().tile = tileData.gidTiles.get(pair.getValue());
+        }
+        
         return new TiledMap(file.getPath(), orientation, renderOrder, width, height,
                 tileWidth, tileHeight, hexSideLength, staggerAxis, staggerIndex, backgroundColor,
                 mapTilesets, topLevelLayers, nonGroupLayers, properties);
@@ -1238,6 +1263,9 @@ public final class TiledReader {
         if (terrainTypes != null) {
             for (Map.Entry<Integer,TiledTile> entry : idTiles.entrySet()) {
                 int id = entry.getKey();
+                if (!tileTerrainTypes.containsKey(id)) {
+                    continue; //If the tile's terrain types were never specified, it doesn't have any
+                }
                 TiledTile tile = entry.getValue();
                 for (int cornerIndex = 0; cornerIndex < 4; cornerIndex++) {
                     Integer ttIndex = tileTerrainTypes.get(id)[cornerIndex];
@@ -1733,20 +1761,7 @@ public final class TiledReader {
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs,
             TiledGroupLayer parent, MapTileData tileData) throws XMLStreamException {
         if (tileData.gidTiles == null) {
-            tileData.gidTiles = new HashMap<>();
-            for (Pair<TiledTileset,Integer> pair : tileData.tilesets) {
-                TiledTileset tileset = pair.getKey();
-                int firstGID = pair.getValue();
-                for (TiledTile tile : tileset.getTiles()) {
-                    int id = tile.getID();
-                    int gid = firstGID + id;
-                    if (tileData.gidTiles.put(gid, tile) != null) {
-                        throw new XMLStreamException("Tileset with first global ID " + firstGID
-                                + " contains a tile with local ID " + id + " and thus global ID " + gid
-                                + ", conflicting with a tile with that same global ID from another tileset");
-                    }
-                }
-            }
+            tileData.initGIDTiles();
         }
         Map<String,String> attributeValues = getAttributeValues(reader, LAYER_ATTRIBUTES);
         
@@ -1806,20 +1821,20 @@ public final class TiledReader {
                                     
                                     int value = entry.getValue();
                                     
-                                    int gid = value & ~FL_DATA_ALL;
+                                    int gid = value & ~FL_TILE_ALL;
                                     TiledTile tile = tileData.gidTiles.get(gid);
                                     if (tile != null) {
                                         tiles.put(point, tile);
                                     }
                                     
                                     int tileFlags = 0;
-                                    if ((value & FL_DATA_FLIPX) != 0) {
+                                    if ((value & FL_TILE_FLIPX) != 0) {
                                         tileFlags += TiledTileLayer.FL_FLIPX;
                                     }
-                                    if ((value & FL_DATA_FLIPY) != 0) {
+                                    if ((value & FL_TILE_FLIPY) != 0) {
                                         tileFlags += TiledTileLayer.FL_FLIPY;
                                     }
-                                    if ((value & FL_DATA_FLIPD) != 0) {
+                                    if ((value & FL_TILE_FLIPD) != 0) {
                                         tileFlags += TiledTileLayer.FL_FLIPD;
                                     }
                                     if (tileFlags != 0) {
@@ -1901,8 +1916,10 @@ public final class TiledReader {
             int k = 0;
             for (int j = 0; j < height; j++) {
                 for (int i = 0; i < width; i++) {
-                    data[i][j] = bytes[k] + (((int)bytes[k + 1]) << 8)
-                            + (((int)bytes[k + 2]) << 16) + (((int)bytes[k + 3]) << 24);
+                    data[i][j] = Byte.toUnsignedInt(bytes[k])
+                            + (Byte.toUnsignedInt(bytes[k + 1]) << 8)
+                            + (Byte.toUnsignedInt(bytes[k + 2]) << 16)
+                            + (Byte.toUnsignedInt(bytes[k + 3]) << 24);
                     k += 4;
                 }
             }
@@ -2231,8 +2248,9 @@ public final class TiledReader {
         
         private String name, type;
         private float width, height, rotation;
-        private int gid;
+        private int unresolvedGID;
         private TiledTile tile;
+        private int tileFlags;
         private boolean visible;
         private TiledObject.Shape shape;
         private List<Point2D> points;
@@ -2245,8 +2263,9 @@ public final class TiledReader {
             width = 0;
             height = 0;
             rotation = 0;
-            gid = 0;
+            unresolvedGID = 0;
             tile = null;
+            tileFlags = 0;
             visible = true;
             shape = TiledObject.Shape.RECTANGLE;
             points = null;
@@ -2260,8 +2279,18 @@ public final class TiledReader {
             width = template.getWidth();
             height = template.getHeight();
             rotation = template.getRotation();
-            gid = 0;
+            unresolvedGID = 0;
             tile = template.getTile();
+            tileFlags = 0;
+            if (template.getTileXFlip()) {
+                tileFlags |= TiledTileLayer.FL_FLIPX;
+            }
+            if (template.getTileYFlip()) {
+                tileFlags |= TiledTileLayer.FL_FLIPY;
+            }
+            if (template.getTileDFlip()) {
+                tileFlags |= TiledTileLayer.FL_FLIPD;
+            }
             visible = template.getVisible();
             shape = template.getShape();
             points = template.getPoints();
@@ -2295,9 +2324,22 @@ public final class TiledReader {
         }
         String gidStr = attributeValues.get("gid");
         if (gidStr != null) {
-            data.gid = parseInt(reader, "gid", gidStr);
-            if (data.gid < 0) {
-                throwInvalidValueException(reader, "gid", gidStr, "value must be non-negative");
+            int rawGID;
+            try {
+                rawGID = Integer.parseUnsignedInt(gidStr);
+            } catch (NumberFormatException e) {
+                throw new XMLStreamException(describeReaderLocation(reader)
+                        + ": <object> tag's gid attribute could not be parsed as an unsigned integer");
+            }
+            data.unresolvedGID = rawGID & ~FL_TILE_ALL;
+            if ((rawGID & FL_TILE_FLIPX) != 0) {
+                data.tileFlags |= TiledTileLayer.FL_FLIPX;
+            }
+            if ((rawGID & FL_TILE_FLIPY) != 0) {
+                data.tileFlags |= TiledTileLayer.FL_FLIPY;
+            }
+            if ((rawGID & FL_TILE_FLIPD) != 0) {
+                data.tileFlags |= TiledTileLayer.FL_FLIPD;
             }
             data.tile = null;
         }
@@ -2473,14 +2515,14 @@ public final class TiledReader {
         readObjectData(file, reader, data);
         
         if (tileObjectsToResolve == null) {
-            data.gid = 0;
+            data.unresolvedGID = 0;
             data.tile = null;
         }
         TiledObject object = new TiledObject(data.name, data.type, x, y, data.width, data.height,
-                data.rotation, data.tile, data.visible, data.shape, data.points, data.text, data.properties,
-                template);
-        if (data.gid != 0) {
-            tileObjectsToResolve.add(new Pair<>(object, data.gid));
+                data.rotation, data.tile, data.tileFlags, data.visible, data.shape, data.points, data.text,
+                data.properties, template);
+        if (data.unresolvedGID != 0) {
+            tileObjectsToResolve.add(new Pair<>(object, data.unresolvedGID));
         }
         return object;
     }
@@ -2762,22 +2804,22 @@ public final class TiledReader {
         }
         
         TiledTile objectTile = null;
-        if (data.gid != 0) {
+        if (data.unresolvedGID != 0) {
             if (tileset == null) {
                 throw new XMLStreamException(describeReaderLocation(reader)
                         + ": <template> tag's <object> tag specifies a global tile ID,"
                                 + " but the <template> tag contains no <tileset> tag");
             }
             try {
-                objectTile = tileset.getTile(data.gid - firstGID);
+                objectTile = tileset.getTile(data.unresolvedGID - firstGID);
             } catch (IndexOutOfBoundsException e) {
                 throw new XMLStreamException(describeReaderLocation(reader)
-                        + ": <object> tag's global tile ID (" + data.gid + ") is out of range");
+                        + ": <object> tag's global tile ID (" + data.unresolvedGID + ") is out of range");
             }
         }
         
         return new TiledObjectTemplate(file.getPath(),
-                data.name, data.type, data.width, data.height, data.rotation, objectTile,
+                data.name, data.type, data.width, data.height, data.rotation, objectTile, data.tileFlags,
                 data.visible, data.shape, data.points, data.text, data.properties);
     }
     

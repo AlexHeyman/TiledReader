@@ -23,7 +23,8 @@ public class TiledObject {
     
     private final String name, type;
     private final float x, y, width, height, rotation;
-    private final TiledTile tile;
+    TiledTile tile;
+    private final int tileFlags;
     private final boolean visible;
     private final TiledObject.Shape shape;
     private final List<Point2D> points;
@@ -32,8 +33,8 @@ public class TiledObject {
     private final TiledObjectTemplate template;
     
     TiledObject(String name, String type, float x, float y, float width, float height, float rotation,
-            TiledTile tile, boolean visible, TiledObject.Shape shape, List<Point2D> points, TiledText text,
-            Map<String,Object> properties, TiledObjectTemplate template) {
+            TiledTile tile, int tileFlags, boolean visible, TiledObject.Shape shape, List<Point2D> points,
+            TiledText text, Map<String,Object> properties, TiledObjectTemplate template) {
         this.name = (name == null ? "" : name);
         this.type = (type == null ? "" : type);
         this.x = x;
@@ -42,6 +43,7 @@ public class TiledObject {
         this.height = height;
         this.rotation = rotation;
         this.tile = tile;
+        this.tileFlags = tileFlags;
         this.visible = visible;
         this.shape = shape;
         this.points = (points == null ? Collections.emptyList() : Collections.unmodifiableList(points));
@@ -114,6 +116,33 @@ public class TiledObject {
      */
     public final TiledTile getTile() {
         return tile;
+    }
+    
+    /**
+     * Returns whether the tile that represents this object is flipped
+     * horizontally, if this object is a tile object. Returns false otherwise.
+     * @return Whether this object's tile is flipped horizontally
+     */
+    public final boolean getTileXFlip() {
+        return (tileFlags & TiledTileLayer.FL_FLIPX) != 0;
+    }
+    
+    /**
+     * Returns whether the tile that represents this object is flipped
+     * vertically, if this object is a tile object. Returns false otherwise.
+     * @return Whether this object's tile is flipped vertically
+     */
+    public final boolean getTileYFlip() {
+        return (tileFlags & TiledTileLayer.FL_FLIPY) != 0;
+    }
+    
+    /**
+     * Returns whether the tile that represents this object is flipped
+     * diagonally, if this object is a tile object. Returns false otherwise.
+     * @return Whether this object's tile is flipped diagonally
+     */
+    public final boolean getTileDFlip() {
+        return (tileFlags & TiledTileLayer.FL_FLIPD) != 0;
     }
     
     /**
