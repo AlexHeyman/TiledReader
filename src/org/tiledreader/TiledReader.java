@@ -128,8 +128,8 @@ public final class TiledReader {
         MAP_ATTRIBUTES.put("staggeraxis", false);
         MAP_ATTRIBUTES.put("staggerindex", false);
         MAP_ATTRIBUTES.put("backgroundcolor", false);
-        MAP_ATTRIBUTES.put("nextlayerid", false);
-        MAP_ATTRIBUTES.put("nextobjectid", false);
+        MAP_ATTRIBUTES.put("nextlayerid", true);
+        MAP_ATTRIBUTES.put("nextobjectid", true);
         MAP_ATTRIBUTES.put("infinite", false);
         MAP_ATTRIBUTES.put("compressionlevel", false);
     }
@@ -1032,6 +1032,8 @@ public final class TiledReader {
         
         Color backgroundColor = parseColor(
                 reader, "backgroundcolor", attributeValues.get("backgroundcolor"), true, null);
+        int nextLayerID = parseInt(reader, "nextlayerid", attributeValues.get("nextlayerid"));
+        int nextObjectID = parseInt(reader, "nextobjectid", attributeValues.get("nextobjectid"));
         
         Map<String,Object> properties = null;
         MapTileData tileData = new MapTileData();
