@@ -186,7 +186,7 @@ public class TiledMap extends TiledResource {
      * @return This map's top-level layers
      */
     public final List<TiledLayer> getTopLevelLayers() {
-        return nonGroupLayers;
+        return topLevelLayers;
     }
     
     /**
