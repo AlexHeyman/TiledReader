@@ -52,7 +52,7 @@ import javax.xml.stream.XMLStreamReader;
  * to the Java garbage collector.</p>
  * 
  * <p>TiledReader does not support image data embedded directly in TMX/TSX
- * files. As of Tiled version 1.3.3, however, it is not possible to embed image
+ * files. As of Tiled version 1.3.4, however, it is not possible to embed image
  * data in files using the Tiled editor.</p>
  * 
  * <p>TiledReader also ignores information in Tiled files pertaining to
@@ -77,9 +77,9 @@ public final class TiledReader {
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
-     * for. Currently 1.3.3.
+     * for. Currently 1.3.4.
      */
-    public static final String TILED_VERSION = "1.3.3";
+    public static final String TILED_VERSION = "1.3.4";
     
     /**
      * The version of the TMX file format that this version of TiledReader was
