@@ -120,6 +120,7 @@ public final class TiledReader {
         MAP_ATTRIBUTES.put("tiledversion", false);
         MAP_ATTRIBUTES.put("orientation", true);
         MAP_ATTRIBUTES.put("renderorder", false);
+        MAP_ATTRIBUTES.put("compressionlevel", false);
         MAP_ATTRIBUTES.put("width", true);
         MAP_ATTRIBUTES.put("height", true);
         MAP_ATTRIBUTES.put("tilewidth", true);
@@ -128,10 +129,9 @@ public final class TiledReader {
         MAP_ATTRIBUTES.put("staggeraxis", false);
         MAP_ATTRIBUTES.put("staggerindex", false);
         MAP_ATTRIBUTES.put("backgroundcolor", false);
-        MAP_ATTRIBUTES.put("nextlayerid", true);
-        MAP_ATTRIBUTES.put("nextobjectid", true);
+        MAP_ATTRIBUTES.put("nextlayerid", false);
+        MAP_ATTRIBUTES.put("nextobjectid", false);
         MAP_ATTRIBUTES.put("infinite", false);
-        MAP_ATTRIBUTES.put("compressionlevel", false);
     }
     
     private static final Map<String,Boolean> TILESET_ATTRIBUTES = new HashMap<>();
@@ -997,6 +997,8 @@ public final class TiledReader {
                 : parseEnumValue(TiledMap.RenderOrder.class,
                 reader, "renderorder", renderOrderStr.replace('-', '_')));
         
+        int compressionLevel = parseInt(
+                reader, "compressionlevel", attributeValues.get("compressionlevel"), true, -1);
         int width = parseInt(reader, "width", attributeValues.get("width"));
         int height = parseInt(reader, "height", attributeValues.get("height"));
         int tileWidth = parseInt(reader, "tilewidth", attributeValues.get("tilewidth"));
@@ -1032,8 +1034,10 @@ public final class TiledReader {
         
         Color backgroundColor = parseColor(
                 reader, "backgroundcolor", attributeValues.get("backgroundcolor"), true, null);
-        int nextLayerID = parseInt(reader, "nextlayerid", attributeValues.get("nextlayerid"));
-        int nextObjectID = parseInt(reader, "nextobjectid", attributeValues.get("nextobjectid"));
+        int nextLayerID = parseInt(reader, "nextlayerid", attributeValues.get("nextlayerid"), true, -1);
+        int nextObjectID = parseInt(reader, "nextobjectid", attributeValues.get("nextobjectid"), true, -1);
+        boolean infinite = parseBooleanFromInt(
+                reader, "infinite", attributeValues.get("infinite"), true, false);
         
         Map<String,Object> properties = null;
         MapTileData tileData = new MapTileData();
