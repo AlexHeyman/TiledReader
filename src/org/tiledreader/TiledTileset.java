@@ -14,6 +14,14 @@ import java.util.SortedMap;
 public class TiledTileset extends TiledResource {
     
     /**
+     * <p>Represents an alignment that tile objects using a tileset's tiles can
+     * have.</p>
+     */
+    public static enum ObjectAlignment {
+        UNSPECIFIED, TOPLEFT, TOP, TOPRIGHT, LEFT, CENTER, RIGHT, BOTTOMLEFT, BOTTOM, BOTTOMRIGHT;
+    }
+    
+    /**
      * <p>Represents an orientation that a tileset's tile grid can have.</p>
      */
     public static enum GridOrientation {
@@ -26,6 +34,7 @@ public class TiledTileset extends TiledResource {
     private final TiledTile[][] locationTiles;
     private final int width, height;
     private final int tileOffsetX, tileOffsetY;
+    private final ObjectAlignment objectAlignment;
     private final GridOrientation gridOrientation;
     private final int gridWidth, gridHeight;
     private final TiledImage image;
@@ -35,8 +44,8 @@ public class TiledTileset extends TiledResource {
     
     TiledTileset(String path, String name, int tileWidth, int tileHeight, int spacing, int margin,
             SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
-            GridOrientation gridOrientation, int gridWidth, int gridHeight, TiledImage image,
-            List<TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
+            ObjectAlignment objectAlignment, GridOrientation gridOrientation, int gridWidth, int gridHeight,
+            TiledImage image, List<TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
             Map<String,Object> properties) {
         super(path);
         this.name = name;
@@ -70,6 +79,7 @@ public class TiledTileset extends TiledResource {
         }
         this.tileOffsetX = tileOffsetX;
         this.tileOffsetY = tileOffsetY;
+        this.objectAlignment = objectAlignment;
         this.gridOrientation = gridOrientation;
         this.gridWidth = gridWidth;
         this.gridHeight = gridHeight;
@@ -208,6 +218,15 @@ public class TiledTileset extends TiledResource {
     }
     
     /**
+     * Returns the alignment type of tile objects using this tileset's tiles
+     * (<code>TiledTileset.ObjectAlignment.UNSPECIFIED</code> by default).
+     * @return The orientation of this tileset's tile grid
+     */
+    public final ObjectAlignment getObjectAlignment() {
+        return objectAlignment;
+    }
+    
+    /**
      * Returns the orientation of this tileset's tile grid
      * (<code>TiledTileset.GridOrientation.ORTHOGONAL</code> by default).
      * @return The orientation of this tileset's tile grid
@@ -265,8 +284,9 @@ public class TiledTileset extends TiledResource {
      * value is the value of that property. The type of the value object
      * corresponds to the type of the property: String for a string property,
      * Integer for an int, Float for a float, Boolean for a bool, <code>
-     * java.awt.Color</code> for a color, and <code>java.io.File</code> for a
-     * file.
+     * java.awt.Color</code> for a color, <code>java.io.File</code> for a file,
+     * and TiledObject for an object (unless the object property is unset, in
+     * which case the value is null).
      * @return This tileset's custom properties
      */
     public final Map<String,Object> getProperties() {
@@ -276,10 +296,11 @@ public class TiledTileset extends TiledResource {
     /**
      * Returns the value of this tileset's custom property with the specified
      * name, or null if no such property was specified. The type of the returned
-     * value corresponds to the type of the property: String for a string
+     * value object corresponds to the type of the property: String for a string
      * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, and <code>java.io.File</code>
-     * for a file.
+     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
+     * file, and TiledObject for an object (unless the object property is unset,
+     * in which case the value is null).
      * @param name The name of the property whose value is to be returned
      * @return The value of this tileset's custom property with the specified
      * name

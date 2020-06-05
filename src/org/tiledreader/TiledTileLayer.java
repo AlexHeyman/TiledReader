@@ -1,5 +1,6 @@
 package org.tiledreader;
 
+import java.awt.Color;
 import java.awt.Point;
 import java.util.Set;
 
@@ -15,8 +16,8 @@ public abstract class TiledTileLayer extends TiledLayer {
     static final byte FL_FLIPD = 1 << 2;
     
     TiledTileLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            float relOffsetX, float relOffsetY) {
-        super(name, parent, relOpacity, relVisible, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY) {
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
     }
     
     /**

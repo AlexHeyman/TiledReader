@@ -1,5 +1,6 @@
 package org.tiledreader;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,8 +15,8 @@ public class TiledGroupLayer extends TiledLayer {
     private List<TiledLayer> children = new ArrayList<>();
     
     TiledGroupLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            float relOffsetX, float relOffsetY) {
-        super(name, parent, relOpacity, relVisible, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY) {
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
     }
     
     final void addChild(TiledLayer child) {

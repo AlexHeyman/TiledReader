@@ -1,5 +1,6 @@
 package org.tiledreader;
 
+import java.awt.Color;
 import java.util.Collections;
 import java.util.Map;
 
@@ -7,12 +8,12 @@ import java.util.Map;
  * <p>A TiledLayer represents a tile layer, object layer, image layer, or group
  * layer, depending on which subclass of TiledLayer it is. The TiledLayer class
  * is responsible for the attributes that all layer types have in common. Since
- * a group layer's opacity, visibility, and rendering x and y offsets
- * recursively affect its child layers, a TiledLayer object's methods specify
- * those four attributes as relative (to the layer's group layer, if it has one)
- * or as absolute. If the layer is not contained in a group layer, its relative
- * opacity, visibility, etc. are equal to its absolute opacity, visibility, etc.
- * </p>
+ * a group layer's opacity, visibility, tint color, and rendering x and y
+ * offsets recursively affect its child layers, a TiledLayer object's methods
+ * specify those four attributes as relative (to the layer's group layer, if it
+ * has one) or as absolute. If the layer is not contained in a group layer, its
+ * relative opacity, visibility, etc. are equal to its absolute opacity,
+ * visibility, etc.</p>
  * @author Alex Heyman
  */
 public abstract class TiledLayer {
@@ -21,25 +22,34 @@ public abstract class TiledLayer {
     private final TiledGroupLayer parent;
     private final float relOpacity, absOpacity;
     private final boolean relVisible, absVisible;
+    private final Color relTintColor, absTintColor;
     private final float relOffsetX, absOffsetX, relOffsetY, absOffsetY;
     private Map<String,Object> properties = Collections.emptyMap();
     
     TiledLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            float relOffsetX, float relOffsetY) {
+            Color relTintColor, float relOffsetX, float relOffsetY) {
         this.name = name;
         this.parent = parent;
         this.relOpacity = relOpacity;
         this.relVisible = relVisible;
+        this.relTintColor = relTintColor;
         this.relOffsetX = relOffsetX;
         this.relOffsetY = relOffsetY;
         if (parent == null) {
             absOpacity = relOpacity;
             absVisible = relVisible;
+            absTintColor = relTintColor;
             absOffsetX = relOffsetX;
             absOffsetY = relOffsetY;
         } else {
             absOpacity = parent.getAbsOpacity() * relOpacity;
             absVisible = (parent.getAbsVisible() && relVisible);
+            Color parentTintColor = parent.getRelTintColor();
+            int blendedR = (int)Math.round((relTintColor.getRed()*parentTintColor.getRed())/255.0);
+            int blendedG = (int)Math.round((relTintColor.getGreen()*parentTintColor.getGreen())/255.0);
+            int blendedB = (int)Math.round((relTintColor.getBlue()*parentTintColor.getBlue())/255.0);
+            int blendedA = (int)Math.round((relTintColor.getAlpha()*parentTintColor.getAlpha())/255.0);
+            absTintColor = new Color(blendedR, blendedG, blendedB, blendedA);
             absOffsetX = parent.getAbsOffsetX() + relOffsetX;
             absOffsetY = parent.getAbsOffsetY() + relOffsetY;
         }
@@ -102,6 +112,24 @@ public abstract class TiledLayer {
     }
     
     /**
+     * Returns this layer's tint color, relative to its group layer if it has
+     * one, or #FFFFFFFF (white) if none was specified.
+     * @return This layer's relative tint color
+     */
+    public final Color getRelTintColor() {
+        return relTintColor;
+    }
+    
+    /**
+     * Returns this layer's absolute tint color, or #FFFFFFFF (white) if none
+     * was specified.
+     * @return This layer's absolute tint color
+     */
+    public final Color getAbsTintColor() {
+        return absTintColor;
+    }
+    
+    /**
      * Returns this layer's rendering x offset, relative to its group layer if
      * it has one.
      * @return This layer's relative rendering x offset
@@ -141,7 +169,9 @@ public abstract class TiledLayer {
      * the value of that property. The type of the value object corresponds
      * to the type of the property: String for a string property, Integer for an
      * int, Float for a float, Boolean for a bool, <code>java.awt.Color</code>
-     * for a color, and <code>java.io.File</code> for a file.
+     * for a color, <code>java.io.File</code> for a file, and TiledObject for an
+     * object (unless the object property is unset, in which case the value is
+     * null).
      * @return This layer's custom properties
      */
     public final Map<String,Object> getProperties() {
@@ -151,10 +181,11 @@ public abstract class TiledLayer {
     /**
      * Returns the value of this layer's custom property with the specified
      * name, or null if no such property was specified. The type of the returned
-     * value corresponds to the type of the property: String for a string
+     * value object corresponds to the type of the property: String for a string
      * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, and <code>java.io.File</code>
-     * for a file.
+     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
+     * file, and TiledObject for an object (unless the object property is unset,
+     * in which case the value is null).
      * @param name The name of the property whose value is to be returned
      * @return The value of this layer's custom property with the specified name
      */

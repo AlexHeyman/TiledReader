@@ -1,5 +1,6 @@
 package org.tiledreader;
 
+import java.awt.Color;
 import java.awt.Point;
 import java.util.AbstractSet;
 import java.util.Iterator;
@@ -25,9 +26,9 @@ public class ArrayTileLayer extends TiledTileLayer {
     private final byte[][] flags;
     
     ArrayTileLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            float relOffsetX, float relOffsetY, int x1, int y1, int x2, int y2,
+            Color relTintColor, float relOffsetX, float relOffsetY, int x1, int y1, int x2, int y2,
             Map<Point,TiledTile> tiles, Map<Point,Integer> flags) {
-        super(name, parent, relOpacity, relVisible, relOffsetX, relOffsetY);
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
         this.x1 = x1;
         this.y1 = y1;
         int numColumns = x2 - x1 + 1;

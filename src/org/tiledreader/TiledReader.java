@@ -52,7 +52,7 @@ import javax.xml.stream.XMLStreamReader;
  * to the Java garbage collector.</p>
  * 
  * <p>TiledReader does not support image data embedded directly in TMX/TSX
- * files. As of Tiled version 1.3.4, however, it is not possible to embed image
+ * files. As of Tiled version 1.4.0, however, it is not possible to embed image
  * data in files using the Tiled editor.</p>
  * 
  * <p>TiledReader also ignores information in Tiled files pertaining to
@@ -71,23 +71,23 @@ public final class TiledReader {
     private TiledReader() {}
     
     /**
-     * The version number of TiledReader, currently 1.0.0.
+     * The version number of TiledReader. Currently 1.0.1.
      */
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
-     * for. Currently 1.3.4.
+     * for. Currently 1.4.0.
      */
-    public static final String TILED_VERSION = "1.3.4";
+    public static final String TILED_VERSION = "1.4.0";
     
     /**
      * The version of the TMX file format that this version of TiledReader was
-     * designed for. Currently 1.2. This is what matters most for file
+     * designed for. Currently 1.4. This is what matters most for file
      * compatibility, and TiledReader will produce a warning if it reads a file
      * with a TMX format version that does not match this constant.
      */
-    public static final String TMX_VERSION = "1.2";
+    public static final String TMX_VERSION = "1.4";
     
     private static Map<Integer,String> EVENT_TYPE_NAMES = null;
     
@@ -143,6 +143,7 @@ public final class TiledReader {
         TILESET_ATTRIBUTES.put("margin", false);
         TILESET_ATTRIBUTES.put("tilecount", true);
         TILESET_ATTRIBUTES.put("columns", true);
+        TILESET_ATTRIBUTES.put("objectalignment", false);
     }
     
     private static final Map<String,Boolean> TMX_TILESET_ATTRIBUTES = new HashMap<>();
@@ -239,6 +240,7 @@ public final class TiledReader {
         LAYER_ATTRIBUTES.put("height", true);
         LAYER_ATTRIBUTES.put("opacity", false);
         LAYER_ATTRIBUTES.put("visible", false);
+        LAYER_ATTRIBUTES.put("tintcolor", false);
         LAYER_ATTRIBUTES.put("offsetx", false);
         LAYER_ATTRIBUTES.put("offsety", false);
     }
@@ -273,6 +275,7 @@ public final class TiledReader {
         MAP_OBJECTGROUP_ATTRIBUTES.put("height", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("opacity", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("visible", false);
+        MAP_OBJECTGROUP_ATTRIBUTES.put("tintcolor", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("offsetx", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("offsety", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("draworder", false);
@@ -330,6 +333,7 @@ public final class TiledReader {
         IMAGELAYER_ATTRIBUTES.put("y", false);
         IMAGELAYER_ATTRIBUTES.put("opacity", false);
         IMAGELAYER_ATTRIBUTES.put("visible", false);
+        IMAGELAYER_ATTRIBUTES.put("tintcolor", false);
         IMAGELAYER_ATTRIBUTES.put("offsetx", false);
         IMAGELAYER_ATTRIBUTES.put("offsety", false);
     }
@@ -340,6 +344,7 @@ public final class TiledReader {
         GROUP_ATTRIBUTES.put("name", true);
         GROUP_ATTRIBUTES.put("opacity", false);
         GROUP_ATTRIBUTES.put("visible", false);
+        GROUP_ATTRIBUTES.put("tintcolor", false);
         GROUP_ATTRIBUTES.put("offsetx", false);
         GROUP_ATTRIBUTES.put("offsety", false);
     }
@@ -350,6 +355,8 @@ public final class TiledReader {
         PROPERTY_ATTRIBUTES.put("type", false);
         PROPERTY_ATTRIBUTES.put("value", false);
     }
+    
+    private static final Color DEFAULT_TINT_COLOR = new Color(1f, 1f, 1f, 1f);
     
     private static final int FL_TILE_FLIPX = 0x80000000;
     private static final int FL_TILE_FLIPY = 0x40000000;
@@ -483,7 +490,8 @@ public final class TiledReader {
                                         Map<String,String> attributeValues
                                                 = getAttributeValues(reader, TSX_TILESET_ATTRIBUTES);
                                         checkVersion(reader, attributeValues.get("version"));
-                                        data.resource = readTileset(file, true, reader, attributeValues);
+                                        data.resource = readTileset(
+                                                file, true, reader, attributeValues, null);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -983,6 +991,20 @@ public final class TiledReader {
         
     }
     
+    private static class PropertyObjectData {
+        
+        private final Map<String,Object> properties;
+        private final String propertyName;
+        private final int objectID;
+        
+        private PropertyObjectData(Map<String,Object> properties, String propertyName, int objectID) {
+            this.properties = properties;
+            this.propertyName = propertyName;
+            this.objectID = objectID;
+        }
+        
+    }
+    
     private static TiledMap readMap(File file, XMLStreamReader reader) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, MAP_ATTRIBUTES);
         
@@ -1044,6 +1066,8 @@ public final class TiledReader {
         List<TiledLayer> topLevelLayers = new ArrayList<>();
         List<TiledLayer> nonGroupLayers = new ArrayList<>();
         Set<Integer> readLayerIDs = new HashSet<>();
+        Map<Integer,TiledObject> allObjectsByID = new HashMap<>();
+        List<PropertyObjectData> propertyObjectsToResolve = new ArrayList<>();
         List<Pair<TiledObject,Integer>> tileObjectsToResolve = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
@@ -1053,7 +1077,7 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1063,21 +1087,23 @@ public final class TiledReader {
                                 throw new XMLStreamException(describeReaderLocation(reader)
                                         + ": <tileset> tag occurs after the first <layer> tag");
                             }
-                            tileData.tilesets.add(readTMXTileset(file, reader));
+                            tileData.tilesets.add(readTMXTileset(file, reader, propertyObjectsToResolve));
                             break;
                         case "layer":
-                            layer = readLayer(file, reader, nonGroupLayers, readLayerIDs, null, tileData);
+                            layer = readLayer(file, reader, nonGroupLayers, readLayerIDs, null,
+                                    tileData, propertyObjectsToResolve);
                             break;
                         case "objectgroup":
-                            layer = readMapObjectGroup(file, reader, nonGroupLayers,
-                                    readLayerIDs, null, tileObjectsToResolve);
+                            layer = readMapObjectGroup(file, reader, nonGroupLayers, readLayerIDs, null,
+                                    allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            layer = readImageLayer(file, reader, nonGroupLayers, readLayerIDs, null);
+                            layer = readImageLayer(file, reader, nonGroupLayers, readLayerIDs, null,
+                                    propertyObjectsToResolve);
                             break;
                         case "group":
-                            layer = readGroup(file, reader, nonGroupLayers,
-                                    readLayerIDs, null, tileData, tileObjectsToResolve);
+                            layer = readGroup(file, reader, nonGroupLayers, readLayerIDs, null, tileData,
+                                    allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -1101,6 +1127,15 @@ public final class TiledReader {
             mapTilesets.add(pair.getKey());
         }
         
+        for (PropertyObjectData data : propertyObjectsToResolve) {
+            TiledObject object = allObjectsByID.get(data.objectID);
+            if (object == null && data.objectID != 0) {
+                throw new XMLStreamException("Object property with name " + data.propertyName
+                        + " refers to invalid object ID (" + data.objectID + ")");
+            }
+            data.properties.put(data.propertyName, object);
+        }
+        
         if (tileData.gidTiles == null) {
             tileData.initGIDTiles();
         }
@@ -1114,7 +1149,8 @@ public final class TiledReader {
     }
     
     private static TiledTileset readTileset(File file, boolean fileIsTSX, XMLStreamReader reader,
-            Map<String,String> attributeValues) throws XMLStreamException {
+            Map<String,String> attributeValues, List<PropertyObjectData> propertyObjectsToResolve)
+            throws XMLStreamException {
         String startLocation = describeReaderLocation(reader);
         
         String name = attributeValues.get("name");
@@ -1131,6 +1167,9 @@ public final class TiledReader {
         if (columns < 0) {
             throwInvalidValueException(reader, "columns", columns, "value must be non-negative");
         }
+        TiledTileset.ObjectAlignment alignment = parseEnumValue(TiledTileset.ObjectAlignment.class,
+                reader, "objectalignment", attributeValues.get("objectalignment"),
+                true, TiledTileset.ObjectAlignment.UNSPECIFIED);
         
         int tileOffsetX = 0;
         int tileOffsetY = 0;
@@ -1176,7 +1215,7 @@ public final class TiledReader {
                             break;
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1196,7 +1235,8 @@ public final class TiledReader {
                             }
                             break;
                         case "tile":
-                            readTilesetTile(file, reader, idTiles, readTileIDs, tileTerrainTypes);
+                            readTilesetTile(file, reader, idTiles, readTileIDs, tileTerrainTypes,
+                                    propertyObjectsToResolve);
                             break;
                         case "wangsets":
                             if (wangSets == null) {
@@ -1289,8 +1329,8 @@ public final class TiledReader {
             }
         }
         
-        TiledTileset tileset = new TiledTileset((fileIsTSX ? file.getPath() : null),
-                name, tileWidth, tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY,
+        TiledTileset tileset = new TiledTileset((fileIsTSX ? file.getPath() : null), name, tileWidth,
+                tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
                 gridOrientation, gridWidth, gridHeight, image, terrainTypes, wangSets, properties);
         for (TiledTile tile : idTiles.values()) {
             tile.tileset = tileset;
@@ -1307,8 +1347,8 @@ public final class TiledReader {
         return tile;
     }
     
-    private static Pair<TiledTileset,Integer> readTMXTileset(File file, XMLStreamReader reader)
-            throws XMLStreamException {
+    private static Pair<TiledTileset,Integer> readTMXTileset(File file, XMLStreamReader reader,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TMX_TILESET_ATTRIBUTES);
         int firstGID = parseInt(reader, "firstgid", attributeValues.get("firstgid"));
         if (firstGID < 0) {
@@ -1322,7 +1362,7 @@ public final class TiledReader {
                     throwMissingAttributeException(reader, entry.getKey());
                 }
             }
-            tileset = readTileset(file, false, reader, attributeValues);
+            tileset = readTileset(file, false, reader, attributeValues, propertyObjectsToResolve);
         } else {
             File source = parseFile(file, reader, "source", sourceStr);
             tileset = getTileset(source.getPath());
@@ -1464,7 +1504,8 @@ public final class TiledReader {
     }
     
     private static void readTilesetTile(File file, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes) throws XMLStreamException {
+            Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TILESET_TILE_ATTRIBUTES);
         
         String idStr = attributeValues.get("id");
@@ -1529,7 +1570,7 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1765,8 +1806,9 @@ public final class TiledReader {
     }
     
     private static TiledTileLayer readLayer(File file, XMLStreamReader reader,
-            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs,
-            TiledGroupLayer parent, MapTileData tileData) throws XMLStreamException {
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
+            MapTileData tileData, List<PropertyObjectData> propertyObjectsToResolve)
+            throws XMLStreamException {
         if (tileData.gidTiles == null) {
             tileData.initGIDTiles();
         }
@@ -1785,6 +1827,8 @@ public final class TiledReader {
         int height = parseInt(reader, "height", attributeValues.get("height"));
         float opacity = parseFloat(reader, "opacity", attributeValues.get("opacity"), true, 1);
         boolean visible = parseBooleanFromInt(reader, "visible", attributeValues.get("visible"), true, true);
+        Color tintColor = parseColor(reader, "tintcolor", attributeValues.get("tintcolor"),
+                true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
         
@@ -1802,7 +1846,7 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1870,11 +1914,11 @@ public final class TiledReader {
         TiledTileLayer layer;
         if (tiles != null && tiles.size() < ((double)layerArea)/4) {
             //Layer's tiles are sparse; represent it with a HashTileLayer
-            layer = new HashTileLayer(name, parent, opacity, visible, offsetX, offsetY,
+            layer = new HashTileLayer(name, parent, opacity, visible, tintColor, offsetX, offsetY,
                     x1, y1, x2, y2, tiles, flags);
         } else {
             //Layer's tiles are dense; represent it with an ArrayTileLayer
-            layer = new ArrayTileLayer(name, parent, opacity, visible, offsetX, offsetY,
+            layer = new ArrayTileLayer(name, parent, opacity, visible, tintColor, offsetX, offsetY,
                     x1, y1, x2, y2, tiles, flags);
         }
         layer.setProperties(properties);
@@ -2165,6 +2209,7 @@ public final class TiledReader {
     
     private static TiledObjectLayer readMapObjectGroup(File file, XMLStreamReader reader,
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
+            Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
             List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, MAP_OBJECTGROUP_ATTRIBUTES);
         
@@ -2175,13 +2220,16 @@ public final class TiledReader {
         }
         
         String name = attributeValues.get("name");
-        Color color = parseColor(reader, "color", attributeValues.get("color"), true, null);
+        Color color = parseColor(reader, "color", attributeValues.get("color"),
+                true, new Color(160, 160, 164));
         int x = parseInt(reader, "x", attributeValues.get("x"), true, 0);
         int y = parseInt(reader, "y", attributeValues.get("y"), true, 0);
         int width = parseInt(reader, "width", attributeValues.get("width"), true, 0);
         int height = parseInt(reader, "height", attributeValues.get("height"), true, 0);
         float opacity = parseFloat(reader, "opacity", attributeValues.get("opacity"), true, 1);
         boolean visible = parseBooleanFromInt(reader, "visible", attributeValues.get("visible"), true, true);
+        Color tintColor = parseColor(reader, "tintcolor", attributeValues.get("tintcolor"),
+                true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
         
@@ -2194,13 +2242,14 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "object":
-                            objects.add(readObject(file, reader, tileObjectsToResolve));
+                            readObject(file, reader, objects,
+                                    allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2217,7 +2266,7 @@ public final class TiledReader {
         }
         
         TiledObjectLayer layer = new TiledObjectLayer(
-                name, parent, opacity, visible, offsetX, offsetY, color, objects);
+                name, parent, opacity, visible, tintColor, offsetX, offsetY, color, objects);
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
         return layer;
@@ -2226,14 +2275,18 @@ public final class TiledReader {
     private static List<TiledObject> readTileObjectGroup(File file, XMLStreamReader reader)
             throws XMLStreamException {
         getAttributeValues(reader, TILE_OBJECTGROUP_ATTRIBUTES);
+        
         List<TiledObject> objects = new ArrayList<>();
+        Map<Integer,TiledObject> allObjectsByID = new HashMap<>();
+        List<PropertyObjectData> propertyObjectsToResolve = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "object":
-                            objects.add(readObject(file, reader, null));
+                            readObject(file, reader,
+                                    objects, allObjectsByID, propertyObjectsToResolve, null);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2248,6 +2301,16 @@ public final class TiledReader {
                     break;
             }
         }
+        
+        for (PropertyObjectData data : propertyObjectsToResolve) {
+            TiledObject object = allObjectsByID.get(data.objectID);
+            if (object == null && data.objectID != 0) {
+                throw new XMLStreamException("Object property with name " + data.propertyName
+                        + " refers to invalid object ID (" + data.objectID + ")");
+            }
+            data.properties.put(data.propertyName, object);
+        }
+        
         return objects;
     }
     
@@ -2262,7 +2325,7 @@ public final class TiledReader {
         private TiledObject.Shape shape;
         private List<Point2D> points;
         private TiledText text;
-        private final Map<String,Object> properties;
+        private Map<String,Object> properties;
         
         private ObjectData() {
             name = "";
@@ -2455,8 +2518,8 @@ public final class TiledReader {
         }
     }
     
-    private static void readObjectData(File file, XMLStreamReader reader, ObjectData data)
-            throws XMLStreamException {
+    private static void readObjectData(File file, XMLStreamReader reader, ObjectData data,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         boolean propertiesRead = false;
         boolean shapeRead = false;
         OUTER: while (true) {
@@ -2468,7 +2531,9 @@ public final class TiledReader {
                             if (propertiesRead) {
                                 ignoreRedundantTag(reader);
                             } else {
-                                data.properties.putAll(readProperties(file, reader));
+                                Map<String,Object> oldProperties = data.properties;
+                                data.properties = readProperties(file, reader, propertyObjectsToResolve);
+                                data.properties.putAll(oldProperties);
                             }
                             break;
                         case "ellipse":
@@ -2498,10 +2563,17 @@ public final class TiledReader {
         }
     }
     
-    private static TiledObject readObject(File file, XMLStreamReader reader,
+    private static void readObject(File file, XMLStreamReader reader, List<TiledObject> objects,
+            Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
             List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
         //tileObjectsToResolve == null iff the object being read is one of a tile's collision objects
         Map<String,String> attributeValues = getAttributeValues(reader, OBJECT_ATTRIBUTES);
+        
+        int id = parseInt(reader, "id", attributeValues.get("id"));
+        if (allObjectsByID.containsKey(id)) {
+            ignoreRedundantTag(reader);
+            return;
+        }
         
         float x = parseFloat(reader, "x", attributeValues.get("x"));
         float y = parseFloat(reader, "y", attributeValues.get("y"));
@@ -2519,7 +2591,7 @@ public final class TiledReader {
         }
         
         updateObjectData(reader, data, attributeValues);
-        readObjectData(file, reader, data);
+        readObjectData(file, reader, data, propertyObjectsToResolve);
         
         if (tileObjectsToResolve == null) {
             data.unresolvedGID = 0;
@@ -2528,10 +2600,11 @@ public final class TiledReader {
         TiledObject object = new TiledObject(data.name, data.type, x, y, data.width, data.height,
                 data.rotation, data.tile, data.tileFlags, data.visible, data.shape, data.points, data.text,
                 data.properties, template);
+        objects.add(object);
+        allObjectsByID.put(id, object);
         if (data.unresolvedGID != 0) {
             tileObjectsToResolve.add(new Pair<>(object, data.unresolvedGID));
         }
-        return object;
     }
     
     private static ObjectData readTemplateObject(File file, XMLStreamReader reader)
@@ -2539,13 +2612,13 @@ public final class TiledReader {
         Map<String,String> attributeValues = getAttributeValues(reader, TEMPLATE_OBJECT_ATTRIBUTES);
         ObjectData data = new ObjectData();
         updateObjectData(reader, data, attributeValues);
-        readObjectData(file, reader, data);
+        readObjectData(file, reader, data, null);
         return data;
     }
     
     private static TiledImageLayer readImageLayer(File file, XMLStreamReader reader,
-            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs,
-            TiledGroupLayer parent) throws XMLStreamException {
+            List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, IMAGELAYER_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
@@ -2559,6 +2632,8 @@ public final class TiledReader {
         int y = parseInt(reader, "y", attributeValues.get("y"), true, 0);
         float opacity = parseFloat(reader, "opacity", attributeValues.get("opacity"), true, 1);
         boolean visible = parseBooleanFromInt(reader, "visible", attributeValues.get("visible"), true, true);
+        Color tintColor = parseColor(reader, "tintcolor", attributeValues.get("tintcolor"),
+                true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
         
@@ -2571,7 +2646,7 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -2597,7 +2672,8 @@ public final class TiledReader {
             }
         }
         
-        TiledImageLayer layer = new TiledImageLayer(name, parent, opacity, visible, offsetX, offsetY, image);
+        TiledImageLayer layer = new TiledImageLayer(
+                name, parent, opacity, visible, tintColor, offsetX, offsetY, image);
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
         return layer;
@@ -2605,8 +2681,9 @@ public final class TiledReader {
     
     private static TiledGroupLayer readGroup(File file, XMLStreamReader reader,
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
-            MapTileData tileData, List<Pair<TiledObject,Integer>> tileObjectsToResolve)
-            throws XMLStreamException {
+            MapTileData tileData, Map<Integer,TiledObject> allObjectsByID,
+            List<PropertyObjectData> propertyObjectsToResolve,
+            List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, GROUP_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
@@ -2618,10 +2695,13 @@ public final class TiledReader {
         String name = attributeValues.get("name");
         float opacity = parseFloat(reader, "opacity", attributeValues.get("opacity"), true, 1);
         boolean visible = parseBooleanFromInt(reader, "visible", attributeValues.get("visible"), true, true);
+        Color tintColor = parseColor(reader, "tintcolor", attributeValues.get("tintcolor"),
+                true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
         
-        TiledGroupLayer group = new TiledGroupLayer(name, parent, opacity, visible, offsetX, offsetY);
+        TiledGroupLayer group = new TiledGroupLayer(
+                name, parent, opacity, visible, tintColor, offsetX, offsetY);
         
         Map<String,Object> properties = null;
         OUTER: while (true) {
@@ -2631,24 +2711,26 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader);
+                                properties = readProperties(file, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "layer":
-                            readLayer(file, reader, nonGroupLayers, readLayerIDs, group, tileData);
+                            readLayer(file, reader, nonGroupLayers, readLayerIDs, group,
+                                    tileData, propertyObjectsToResolve);
                             break;
                         case "objectgroup":
-                            readMapObjectGroup(
-                                    file, reader, nonGroupLayers, readLayerIDs, group, tileObjectsToResolve);
+                            readMapObjectGroup(file, reader, nonGroupLayers, readLayerIDs, group,
+                                    allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            readImageLayer(file, reader, nonGroupLayers, readLayerIDs, group);
+                            readImageLayer(file, reader, nonGroupLayers, readLayerIDs, group,
+                                    propertyObjectsToResolve);
                             break;
                         case "group":
-                            readGroup(file, reader,
-                                    nonGroupLayers, readLayerIDs, group, tileData, tileObjectsToResolve);
+                            readGroup(file, reader, nonGroupLayers, readLayerIDs, group, tileData,
+                                    allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2670,8 +2752,8 @@ public final class TiledReader {
         return group;
     }
     
-    private static Map<String,Object> readProperties(File file, XMLStreamReader reader)
-            throws XMLStreamException {
+    private static Map<String,Object> readProperties(File file, XMLStreamReader reader,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
         Map<String,Object> properties = new HashMap<>();
         OUTER: while (true) {
@@ -2680,8 +2762,7 @@ public final class TiledReader {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "property":
-                            Pair<String,Object> property = readProperty(file, reader);
-                            properties.put(property.getKey(), property.getValue());
+                            readProperty(file, reader, properties, propertyObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2699,17 +2780,23 @@ public final class TiledReader {
         return properties;
     }
     
-    private static Pair<String,Object> readProperty(File file, XMLStreamReader reader)
-            throws XMLStreamException {
+    private static void readProperty(File file, XMLStreamReader reader, Map<String,Object> properties,
+            List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
+        //propertyObjectsToResolve == null iff object properties are invalid in the current context
+        //(e.g. if these are the properties of a tileset not embedded in a map)
         Map<String,String> attributeValues = getAttributeValues(reader, PROPERTY_ATTRIBUTES);
         
         String name = attributeValues.get("name");
+        if (properties.containsKey(name)) {
+            ignoreRedundantTag(reader);
+            return;
+        }
         
         String type = attributeValues.get("type");
         if (type == null) {
             type = "string";
         }
-        String[] acceptableTypes = {"string", "int", "float", "bool", "color", "file"};
+        String[] acceptableTypes = {"string", "int", "float", "bool", "color", "file", "object"};
         if (Arrays.asList(acceptableTypes).indexOf(type) == -1) {
             throwInvalidValueException(reader, "type", type,
                     "value must be one of the following: " + String.join(", ", acceptableTypes)
@@ -2741,28 +2828,41 @@ public final class TiledReader {
             }
         }
         
-        if (valueStr == null) {
-            throw new XMLStreamException(describeReaderLocation(reader)
-                    + ": <property> tag does not specify a value");
-        }
-        
-        Object value = null;
         try {
             switch (type) {
-                case "string": value = valueStr; break;
-                case "int": value = parseInt(reader, "value", valueStr); break;
-                case "float": value = parseFloat(reader, "value", valueStr); break;
-                case "bool": value = parseBoolean(reader, "value", valueStr); break;
-                case "color": value = parseColor(reader, "value", valueStr); break;
-                case "file": value = parseFile(file, reader, "value", valueStr); break;
+                case "string":
+                    properties.put(name, (valueStr == null ? "" : valueStr));
+                    break;
+                case "int":
+                    properties.put(name, parseInt(reader, "value", valueStr, true, 0));
+                    break;
+                case "float":
+                    properties.put(name, parseFloat(reader, "value", valueStr, true, 0));
+                    break;
+                case "bool":
+                    properties.put(name, parseBoolean(reader, "value", valueStr, true, false));
+                    break;
+                case "color":
+                    properties.put(name, parseColor(reader, "value", valueStr, true, new Color(0, 0, 0, 0)));
+                    break;
+                case "file":
+                    properties.put(name, parseFile(file, reader, "value", valueStr, true, new File(".")));
+                    break;
+                case "object":
+                    if (propertyObjectsToResolve == null) {
+                        throw new XMLStreamException(describeReaderLocation(reader) + ": <property> tag"
+                                + " represents an object property in a context where object properties are"
+                                + " invalid");
+                    }
+                    propertyObjectsToResolve.add(new PropertyObjectData(
+                            properties, name, parseInt(reader, "value", valueStr, true, 0)));
+                    break;
             }
         } catch (XMLStreamException e) {
             throw new XMLStreamException(describeReaderLocation(reader)
                 + ": <property> tag (value type: " + type
                     + ") specifies an invalid value (" + valueStr + ")");
         }
-        
-        return new Pair<>(name, value);
     }
     
     private static TiledObjectTemplate readTemplate(File file, XMLStreamReader reader)

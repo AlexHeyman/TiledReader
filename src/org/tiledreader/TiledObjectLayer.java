@@ -16,15 +16,15 @@ public class TiledObjectLayer extends TiledLayer {
     private final List<TiledObject> objects;
     
     TiledObjectLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            float relOffsetX, float relOffsetY, Color color, List<TiledObject> objects) {
-        super(name, parent, relOpacity, relVisible, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY, Color color, List<TiledObject> objects) {
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
         this.color = color;
         this.objects = Collections.unmodifiableList(objects);
     }
     
     /**
      * Returns the color used to display the objects in this object layer in
-     * Tiled, or null if none was specified.
+     * Tiled (#A0A0A4 (gray) by default).
      * @return The color used to display the objects in this object layer
      */
     public final Color getColor() {
