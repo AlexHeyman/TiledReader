@@ -27,7 +27,6 @@ import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.Inflater;
-import javafx.util.Pair;
 import javax.xml.stream.Location;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -71,9 +70,9 @@ public final class TiledReader {
     private TiledReader() {}
     
     /**
-     * The version number of TiledReader. Currently 1.0.1.
+     * The version number of TiledReader. Currently 1.0.2.
      */
-    public static final String VERSION = "1.0.1";
+    public static final String VERSION = "1.0.2";
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
@@ -967,16 +966,28 @@ public final class TiledReader {
         return parseFile(file, reader, attribute, value, false, null);
     }
     
+    private static class ReferencedTileset {
+        
+        private final TiledTileset tileset;
+        private final int firstGID;
+        
+        private ReferencedTileset(TiledTileset tileset, int firstGID) {
+            this.tileset = tileset;
+            this.firstGID = firstGID;
+        }
+        
+    }
+    
     private static class MapTileData {
         
-        private List<Pair<TiledTileset,Integer>> tilesets = new ArrayList<>();
+        private List<ReferencedTileset> tilesets = new ArrayList<>();
         private Map<Integer,TiledTile> gidTiles = null;
         
         private void initGIDTiles() throws XMLStreamException {
             gidTiles = new HashMap<>();
-            for (Pair<TiledTileset,Integer> pair : tilesets) {
-                TiledTileset tileset = pair.getKey();
-                int firstGID = pair.getValue();
+            for (ReferencedTileset referencedTileset : tilesets) {
+                TiledTileset tileset = referencedTileset.tileset;
+                int firstGID = referencedTileset.firstGID;
                 for (TiledTile tile : tileset.getTiles()) {
                     int id = tile.getID();
                     int gid = firstGID + id;
@@ -1001,6 +1012,18 @@ public final class TiledReader {
             this.properties = properties;
             this.propertyName = propertyName;
             this.objectID = objectID;
+        }
+        
+    }
+    
+    private static class TileObjectToResolve {
+        
+        private final TiledObject object;
+        private final int gid;
+        
+        private TileObjectToResolve(TiledObject object, int gid) {
+            this.object = object;
+            this.gid = gid;
         }
         
     }
@@ -1068,7 +1091,7 @@ public final class TiledReader {
         Set<Integer> readLayerIDs = new HashSet<>();
         Map<Integer,TiledObject> allObjectsByID = new HashMap<>();
         List<PropertyObjectData> propertyObjectsToResolve = new ArrayList<>();
-        List<Pair<TiledObject,Integer>> tileObjectsToResolve = new ArrayList<>();
+        List<TileObjectToResolve> tileObjectsToResolve = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
             TiledLayer layer = null;
@@ -1123,8 +1146,8 @@ public final class TiledReader {
         }
         
         List<TiledTileset> mapTilesets = new ArrayList<>(tileData.tilesets.size());
-        for (Pair<TiledTileset,Integer> pair : tileData.tilesets) {
-            mapTilesets.add(pair.getKey());
+        for (ReferencedTileset mapTileset : tileData.tilesets) {
+            mapTilesets.add(mapTileset.tileset);
         }
         
         for (PropertyObjectData data : propertyObjectsToResolve) {
@@ -1139,8 +1162,8 @@ public final class TiledReader {
         if (tileData.gidTiles == null) {
             tileData.initGIDTiles();
         }
-        for (Pair<TiledObject,Integer> pair : tileObjectsToResolve) {
-            pair.getKey().tile = tileData.gidTiles.get(pair.getValue());
+        for (TileObjectToResolve objectToResolve : tileObjectsToResolve) {
+            objectToResolve.object.tile = tileData.gidTiles.get(objectToResolve.gid);
         }
         
         return new TiledMap(file.getPath(), orientation, renderOrder, width, height,
@@ -1347,7 +1370,7 @@ public final class TiledReader {
         return tile;
     }
     
-    private static Pair<TiledTileset,Integer> readTMXTileset(File file, XMLStreamReader reader,
+    private static ReferencedTileset readTMXTileset(File file, XMLStreamReader reader,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TMX_TILESET_ATTRIBUTES);
         int firstGID = parseInt(reader, "firstgid", attributeValues.get("firstgid"));
@@ -1369,10 +1392,10 @@ public final class TiledReader {
             ensureReference(file, source);
             finishTag(reader);
         }
-        return new Pair<>(tileset, firstGID);
+        return new ReferencedTileset(tileset, firstGID);
     }
     
-    private static Pair<TiledTileset,Integer> readTXTileset(File file, XMLStreamReader reader)
+    private static ReferencedTileset readTXTileset(File file, XMLStreamReader reader)
             throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TX_TILESET_ATTRIBUTES);
         int firstGID = parseInt(reader, "firstgid", attributeValues.get("firstgid"));
@@ -1383,7 +1406,7 @@ public final class TiledReader {
         TiledTileset tileset = getTileset(source.getPath());
         ensureReference(file, source);
         finishTag(reader);
-        return new Pair<>(tileset, firstGID);
+        return new ReferencedTileset(tileset, firstGID);
     }
     
     private static Point readTileOffset(XMLStreamReader reader) throws XMLStreamException {
@@ -1503,6 +1526,18 @@ public final class TiledReader {
         terrainTypes.add(new TiledTerrainType(name, tile));
     }
     
+    private static class AnimationFrame {
+        
+        private final TiledTile frame;
+        private final int duration;
+        
+        private AnimationFrame(TiledTile frame, int duration) {
+            this.frame = frame;
+            this.duration = duration;
+        }
+        
+    }
+    
     private static void readTilesetTile(File file, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
             Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
@@ -1591,9 +1626,13 @@ public final class TiledReader {
                             break;
                         case "animation":
                             if (frames == null) {
-                                Pair<List<TiledTile>,List<Integer>> pair = readAnimation(reader, idTiles);
-                                frames = pair.getKey();
-                                frameDurations = pair.getValue();
+                                List<AnimationFrame> animation = readAnimation(reader, idTiles);
+                                frames = new ArrayList<>();
+                                frameDurations = new ArrayList<>();
+                                for (AnimationFrame animationFrame : animation) {
+                                    frames.add(animationFrame.frame);
+                                    frameDurations.add(animationFrame.duration);
+                                }
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1614,20 +1653,17 @@ public final class TiledReader {
         tile.setInnerTagInfo(image, collisionObjects, frames, frameDurations, properties);
     }
     
-    private static Pair<List<TiledTile>,List<Integer>> readAnimation(XMLStreamReader reader,
+    private static List<AnimationFrame> readAnimation(XMLStreamReader reader,
             Map<Integer,TiledTile> idTiles) throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
-        List<TiledTile> frames = new ArrayList<>();
-        List<Integer> frameDurations = new ArrayList<>();
+        List<AnimationFrame> animation = new ArrayList<>();
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "frame":
-                            Pair<TiledTile,Integer> frame = readFrame(reader, idTiles);
-                            frames.add(frame.getKey());
-                            frameDurations.add(frame.getValue());
+                            animation.add(readFrame(reader, idTiles));
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -1642,14 +1678,14 @@ public final class TiledReader {
                     break;
             }
         }
-        if (frames.isEmpty()) {
+        if (animation.isEmpty()) {
             throw new XMLStreamException(describeReaderLocation(reader)
                     + ": <animation> tag contains no <frame> tags");
         }
-        return new Pair<>(frames, frameDurations);
+        return animation;
     }
     
-    private static Pair<TiledTile,Integer> readFrame(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
+    private static AnimationFrame readFrame(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
             throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, FRAME_ATTRIBUTES);
         String tileIDStr = attributeValues.get("tileid");
@@ -1659,7 +1695,7 @@ public final class TiledReader {
         }
         int duration = parseInt(reader, "duration", attributeValues.get("duration"));
         finishTag(reader);
-        return new Pair<>(getTile(idTiles, tileID), duration);
+        return new AnimationFrame(getTile(idTiles, tileID), duration);
     }
     
     private static List<TiledWangSet> readWangSets(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
@@ -2210,7 +2246,7 @@ public final class TiledReader {
     private static TiledObjectLayer readMapObjectGroup(File file, XMLStreamReader reader,
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
             Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
-            List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
+            List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, MAP_OBJECTGROUP_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
@@ -2565,7 +2601,7 @@ public final class TiledReader {
     
     private static void readObject(File file, XMLStreamReader reader, List<TiledObject> objects,
             Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
-            List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
+            List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
         //tileObjectsToResolve == null iff the object being read is one of a tile's collision objects
         Map<String,String> attributeValues = getAttributeValues(reader, OBJECT_ATTRIBUTES);
         
@@ -2603,7 +2639,7 @@ public final class TiledReader {
         objects.add(object);
         allObjectsByID.put(id, object);
         if (data.unresolvedGID != 0) {
-            tileObjectsToResolve.add(new Pair<>(object, data.unresolvedGID));
+            tileObjectsToResolve.add(new TileObjectToResolve(object, data.unresolvedGID));
         }
     }
     
@@ -2683,7 +2719,7 @@ public final class TiledReader {
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
             MapTileData tileData, Map<Integer,TiledObject> allObjectsByID,
             List<PropertyObjectData> propertyObjectsToResolve,
-            List<Pair<TiledObject,Integer>> tileObjectsToResolve) throws XMLStreamException {
+            List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, GROUP_ATTRIBUTES);
         
         int id = parseInt(reader, "id", attributeValues.get("id"));
@@ -2879,9 +2915,9 @@ public final class TiledReader {
                     switch (reader.getLocalName()) {
                         case "tileset":
                             if (tileset == null) {
-                                Pair<TiledTileset,Integer> pair = readTXTileset(file, reader);
-                                tileset = pair.getKey();
-                                firstGID = pair.getValue();
+                                ReferencedTileset referencedTileset = readTXTileset(file, reader);
+                                tileset = referencedTileset.tileset;
+                                firstGID = referencedTileset.firstGID;
                             } else {
                                 ignoreRedundantTag(reader);
                             }
