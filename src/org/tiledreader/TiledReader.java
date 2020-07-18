@@ -1570,8 +1570,12 @@ public final class TiledReader {
                                 + ") contains more than 4 comma-separated values");
                     }
                     try {
-                        terrainTypes[cornerIndex] = Integer.parseInt(
-                                terrain.substring(startOfSubstring, i).trim());
+                        String terrainType = terrain.substring(startOfSubstring, i).trim();
+                        if(!terrainType.isEmpty())
+                        {
+                            terrainTypes[cornerIndex] = Integer.parseInt(
+                                    terrainType);
+                        }
                     } catch (NumberFormatException e) {
                         throw new XMLStreamException(describeReaderLocation(reader)
                                 + ": Value of <tile> tag's terrain attribute (" + terrain
