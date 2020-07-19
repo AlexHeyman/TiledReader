@@ -25,7 +25,7 @@ public class TiledTerrainType {
     
     /**
      * Returns the tile in this terrain type's tileset that represents this
-     * terrain type visually.
+     * terrain type visually, or null if there is no such tile.
      * @return The tile that represents this terrain type visually
      */
     public final TiledTile getTile() {

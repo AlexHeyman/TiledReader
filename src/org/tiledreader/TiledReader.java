@@ -1515,12 +1515,8 @@ public final class TiledReader {
         
         String name = attributeValues.get("name");
         
-        String tileIDStr = attributeValues.get("tile");
-        int tileID = parseInt(reader, "tile", tileIDStr);
-        if (tileID < 0) {
-            throwInvalidValueException(reader, "tile", tileIDStr, "value must be non-negative");
-        }
-        TiledTile tile = getTile(idTiles, tileID);
+        int tileID = parseInt(reader, "tile", attributeValues.get("tile"));
+        TiledTile tile = (tileID < 0 ? null : getTile(idTiles, tileID));
         
         finishTag(reader);
         terrainTypes.add(new TiledTerrainType(name, tile));
@@ -1569,17 +1565,15 @@ public final class TiledReader {
                                 + ": Value of <tile> tag's terrain attribute (" + terrain
                                 + ") contains more than 4 comma-separated values");
                     }
-                    try {
-                        String terrainType = terrain.substring(startOfSubstring, i).trim();
-                        if(!terrainType.isEmpty())
-                        {
-                            terrainTypes[cornerIndex] = Integer.parseInt(
-                                    terrainType);
+                    String terrainType = terrain.substring(startOfSubstring, i).trim();
+                    if (!terrainType.isEmpty()) {
+                        try {
+                            terrainTypes[cornerIndex] = Integer.parseInt(terrainType);
+                        } catch (NumberFormatException e) {
+                            throw new XMLStreamException(describeReaderLocation(reader)
+                                    + ": Value of <tile> tag's terrain attribute (" + terrain
+                                    + ") contains a non-integer value");
                         }
-                    } catch (NumberFormatException e) {
-                        throw new XMLStreamException(describeReaderLocation(reader)
-                                + ": Value of <tile> tag's terrain attribute (" + terrain
-                                + ") contains a non-integer value");
                     }
                     cornerIndex++;
                     startOfSubstring = i + 1;
