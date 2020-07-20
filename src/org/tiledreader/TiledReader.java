@@ -364,7 +364,7 @@ public final class TiledReader {
         LOGGER.setLevel(Level.INFO);
     }
 
-    public static FileLocatorStrategy fileLocator;
+    public static FileLocatorStrategy fileLocator = new DefaultFileLocatorStrategy();
 
     private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
     
