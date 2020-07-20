@@ -396,7 +396,7 @@ public final class TiledReader {
             throw new RuntimeException("Attempted to read a Tiled map from a path that does not point to a"
                     + " TMX file: " + path);
         }
-
+        path = fileLocator.sanitizePath(path);
         ResourceData data = resources.get(path);
         if (data == null) {
             data = new ResourceData();
@@ -456,6 +456,7 @@ public final class TiledReader {
             throw new RuntimeException("Attempted to read a Tiled tileset from a path that does not point to"
                     + " a TSX file: " + path);
         }
+        path = fileLocator.sanitizePath(path);
         ResourceData data = resources.get(path);
         if (data == null) {
             data = new ResourceData();

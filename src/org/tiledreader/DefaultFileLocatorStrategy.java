@@ -3,6 +3,16 @@ package org.tiledreader;
 import java.io.*;
 
 public class DefaultFileLocatorStrategy implements FileLocatorStrategy {
+
+    @Override
+    public String sanitizePath(String path) {
+        try {
+            return new File(path).getCanonicalPath();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public InputStream openPath(String path) {
         try {
