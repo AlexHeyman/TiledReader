@@ -1,6 +1,10 @@
 package org.tiledreader;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
 
 /**
  * <p>A TiledTileset represents a tileset. It corresponds to a &lt;tileset&gt;

@@ -1,6 +1,7 @@
 package org.tiledreader;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Point;
 import java.util.Set;
 
 /**

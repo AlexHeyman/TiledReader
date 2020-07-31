@@ -1,6 +1,6 @@
 package org.tiledreader;
 
-import java.awt.*;
+import java.awt.Color;
 
 /**
  * <p>A TiledWangColor represents a color that can be used to define the corner

@@ -1,6 +1,6 @@
 package org.tiledreader;
 
-import java.awt.*;
+import java.awt.Color;
 
 /**
  * <p>A TiledText represents the text of a text-type Tiled object. It
