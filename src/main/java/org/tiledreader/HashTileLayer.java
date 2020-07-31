@@ -13,9 +13,9 @@ import java.util.Set;
  * represents, plus the number of tiles in the layer that are horizontally,
  * vertically, or diagonally flipped. The time needed to iterate through a
  * HashTileLayer's set of tile locations is proportional only to the number of
- * those locations. The TiledReader class automatically chooses whether to
- * represent each tile layer it reads with an ArrayTileLayer or a HashTileLayer,
- * based on an estimate of which would use less memory.</p>
+ * those locations. A TiledReader automatically chooses whether to represent
+ * each tile layer it reads with an ArrayTileLayer or a HashTileLayer, based on
+ * an estimate of which would use less memory.</p>
  * @author Alex Heyman
  */
 public class HashTileLayer extends TiledTileLayer {
