@@ -10,7 +10,7 @@ import java.util.Map;
  * tile implicitly declared by the attributes of a &lt;tileset&gt; tag.</p>
  * @author Alex Heyman
  */
-public class TiledTile {
+public class TiledTile implements TiledCustomizable {
     
     TiledTileset tileset = null;
     private final int id;
@@ -199,32 +199,12 @@ public class TiledTile {
         return frameDurations.get(index);
     }
     
-    /**
-     * Returns an unmodifiable Map view of this tile's custom properties. Each
-     * key in the Map is the name of a property, and its corresponding value is
-     * the value of that property. The type of the value object corresponds
-     * to the type of the property: String for a string property, Integer for an
-     * int, Float for a float, Boolean for a bool, <code>java.awt.Color</code>
-     * for a color, <code>java.io.File</code> for a file, and TiledObject for an
-     * object (unless the object property is unset, in which case the value is
-     * null).
-     * @return This tile's custom properties
-     */
+    @Override
     public final Map<String,Object> getProperties() {
         return properties;
     }
     
-    /**
-     * Returns the value of this tile's custom property with the specified name,
-     * or null if no such property was specified. The type of the returned value
-     * object corresponds to the type of the property: String for a string
-     * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
-     * file, and TiledObject for an object (unless the object property is unset,
-     * in which case the value is null).
-     * @param name The name of the property whose value is to be returned
-     * @return The value of this tile's custom property with the specified name
-     */
+    @Override
     public final Object getProperty(String name) {
         return properties.get(name);
     }

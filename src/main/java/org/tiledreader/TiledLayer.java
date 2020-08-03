@@ -16,7 +16,7 @@ import java.util.Map;
  * visibility, etc.</p>
  * @author Alex Heyman
  */
-public abstract class TiledLayer {
+public abstract class TiledLayer implements TiledCustomizable {
     
     private final String name;
     private final TiledGroupLayer parent;
@@ -163,32 +163,12 @@ public abstract class TiledLayer {
         return absOffsetY;
     }
     
-    /**
-     * Returns an unmodifiable Map view of this layer's custom properties. Each
-     * key in the Map is the name of a property, and its corresponding value is
-     * the value of that property. The type of the value object corresponds
-     * to the type of the property: String for a string property, Integer for an
-     * int, Float for a float, Boolean for a bool, <code>java.awt.Color</code>
-     * for a color, <code>java.io.File</code> for a file, and TiledObject for an
-     * object (unless the object property is unset, in which case the value is
-     * null).
-     * @return This layer's custom properties
-     */
+    @Override
     public final Map<String,Object> getProperties() {
         return properties;
     }
     
-    /**
-     * Returns the value of this layer's custom property with the specified
-     * name, or null if no such property was specified. The type of the returned
-     * value object corresponds to the type of the property: String for a string
-     * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
-     * file, and TiledObject for an object (unless the object property is unset,
-     * in which case the value is null).
-     * @param name The name of the property whose value is to be returned
-     * @return The value of this layer's custom property with the specified name
-     */
+    @Override
     public final Object getProperty(String name) {
         return properties.get(name);
     }

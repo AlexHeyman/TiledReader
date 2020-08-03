@@ -11,7 +11,7 @@ import java.util.Map;
  * a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledObjectTemplate extends TiledResource {
+public class TiledObjectTemplate extends TiledResource implements TiledCustomizable {
     
     private final String name, type;
     private final float width, height, rotation;
@@ -23,10 +23,10 @@ public class TiledObjectTemplate extends TiledResource {
     private final TiledText text;
     private final Map<String,Object> properties;
     
-    TiledObjectTemplate(String path, String name, String type, float width, float height, float rotation,
-            TiledTile tile, int tileFlags, boolean visible, TiledObject.Shape shape, List<Point2D> points,
-            TiledText text, Map<String,Object> properties) {
-        super(path);
+    TiledObjectTemplate(TiledReader reader, String path, String name, String type, float width, float height,
+            float rotation, TiledTile tile, int tileFlags, boolean visible, TiledObject.Shape shape,
+            List<Point2D> points, TiledText text, Map<String,Object> properties) {
+        super(reader, path);
         this.name = name;
         this.type = type;
         this.width = width;
@@ -164,33 +164,12 @@ public class TiledObjectTemplate extends TiledResource {
         return text;
     }
     
-    /**
-     * Returns an unmodifiable Map view of the custom properties of objects with
-     * this template. Each key in the Map is the name of a property, and its
-     * corresponding value is the value of that property. The type of the value
-     * object corresponds to the type of the property: String for a string
-     * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
-     * file, and TiledObject for an object (unless the object property is unset,
-     * in which case the value is null).
-     * @return The custom properties of objects with this template
-     */
+    @Override
     public final Map<String,Object> getProperties() {
         return properties;
     }
     
-    /**
-     * Returns the value of the custom property with the specified name of
-     * objects with this template, or null if no such property was specified.
-     * The type of the returned value object corresponds to the type of the
-     * property: String for a string property, Integer for an int, Float for a
-     * float, Boolean for a bool, <code>java.awt.Color</code> for a color,
-     * <code>java.io.File</code> for a file, and TiledObject for an object
-     * (unless the object property is unset, in which case the value is null).
-     * @param name The name of the property whose value is to be returned
-     * @return The value of the custom property with the specified name of
-     * objects with this template
-     */
+    @Override
     public final Object getProperty(String name) {
         return properties.get(name);
     }

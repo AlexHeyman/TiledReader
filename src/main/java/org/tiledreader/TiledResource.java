@@ -12,21 +12,30 @@ package org.tiledreader;
  */
 public class TiledResource {
     
+    private final TiledReader reader;
     private final String path;
     
-    TiledResource(String path) {
+    TiledResource(TiledReader reader, String path) {
+        this.reader = reader;
         this.path = path;
+    }
+    
+    /**
+     * Returns the TiledReader that read this resource as a Tiled file's
+     * top-level structure, or null if this resource was read as a
+     * lower-level structure.
+     * @return The TiledReader that read this resource
+     */
+    public final TiledReader getReader() {
+        return reader;
     }
     
     /**
      * Returns the path to the Tiled file from which this resource was read as
      * the top-level structure, or null if this resource was read as a
-     * lower-level structure (in particular, if it is a TiledTileset that
-     * represents a tileset embedded in a TMX file). If this resource was
-     * returned by a call to one of a TiledReader's resource getter methods
-     * (e.g. getMap()), the String returned by this method may not be equal to
-     * the path argument passed to the getter method. However, both path Strings
-     * are guaranteed to point to the same file.
+     * lower-level structure. If it is not null, the path is an absolute path
+     * returned by the getCanonicalPath() method of the TiledReader that read
+     * this resource.
      * @return The path to the Tiled file from which this resource was read
      */
     public final String getPath() {

@@ -11,7 +11,7 @@ import java.util.SortedMap;
  * tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledTileset extends TiledResource {
+public class TiledTileset extends TiledResource implements TiledCustomizable {
     
     /**
      * <p>Represents an alignment that tile objects using a tileset's tiles can
@@ -42,12 +42,12 @@ public class TiledTileset extends TiledResource {
     private final List<TiledWangSet> wangSets;
     private final Map<String,Object> properties;
     
-    TiledTileset(String path, String name, int tileWidth, int tileHeight, int spacing, int margin,
-            SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
+    TiledTileset(TiledReader reader, String path, String name, int tileWidth, int tileHeight, int spacing,
+            int margin, SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
             ObjectAlignment objectAlignment, GridOrientation gridOrientation, int gridWidth, int gridHeight,
             TiledImage image, List<TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
             Map<String,Object> properties) {
-        super(path);
+        super(reader, path);
         this.name = name;
         this.tileWidth = tileWidth;
         this.tileHeight = tileHeight;
@@ -278,33 +278,12 @@ public class TiledTileset extends TiledResource {
         return wangSets;
     }
     
-    /**
-     * Returns an unmodifiable Map view of this tileset's custom properties.
-     * Each key in the Map is the name of a property, and its corresponding
-     * value is the value of that property. The type of the value object
-     * corresponds to the type of the property: String for a string property,
-     * Integer for an int, Float for a float, Boolean for a bool, <code>
-     * java.awt.Color</code> for a color, <code>java.io.File</code> for a file,
-     * and TiledObject for an object (unless the object property is unset, in
-     * which case the value is null).
-     * @return This tileset's custom properties
-     */
+    @Override
     public final Map<String,Object> getProperties() {
         return properties;
     }
     
-    /**
-     * Returns the value of this tileset's custom property with the specified
-     * name, or null if no such property was specified. The type of the returned
-     * value object corresponds to the type of the property: String for a string
-     * property, Integer for an int, Float for a float, Boolean for a bool,
-     * <code>java.awt.Color</code> for a color, <code>java.io.File</code> for a
-     * file, and TiledObject for an object (unless the object property is unset,
-     * in which case the value is null).
-     * @param name The name of the property whose value is to be returned
-     * @return The value of this tileset's custom property with the specified
-     * name
-     */
+    @Override
     public final Object getProperty(String name) {
         return properties.get(name);
     }

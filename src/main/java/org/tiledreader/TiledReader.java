@@ -4,10 +4,8 @@ import java.awt.Color;
 import java.awt.Point;
 import java.awt.geom.Point2D;
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
@@ -39,15 +37,22 @@ import javax.xml.stream.XMLStreamReader;
  * methods that read Tiled maps, tilesets, and object templates from specified
  * files.</p>
  * 
- * <p>A TiledReader stores pointers to the maps, tilesets, and object templates
- * corresponding to all of the files it has read, and will use these pointers to
- * return the very same resource object if asked to read the same file multiple
- * times. This is mainly to ensure that, if multiple Tiled maps reference the
- * same external tileset or object template file, the external file will not be
- * wastefully parsed and stored in memory multiple times. However, a TiledReader
- * also contains methods that can be called manually to remove these pointers.
- * Removing the pointer to a no-longer-needed resource object is necessary to
- * make the object vulnerable to the Java garbage collector.</p>
+ * <p>A TiledReader stores a cache of pointers to the maps, tilesets, and object
+ * templates corresponding to all of the files it has read, which is indexed by
+ * canonical (absolute and unique) paths to those files. A TiledReader uses this
+ * cache to return the very same resource object if asked to read the same file
+ * multiple times. This is mainly to ensure that, if multiple Tiled maps
+ * reference the same external tileset or object template file, the external
+ * file will not be wastefully parsed and stored in memory multiple times.
+ * However, a TiledReader also contains methods that can be called manually to
+ * remove pointers from the cache. Removing the pointer to a no-longer-needed
+ * resource object is necessary to make the object vulnerable to the Java
+ * garbage collector.</p>
+ * 
+ * <p>The TiledReader class contains abstract methods that perform back-end
+ * tasks like I/O and interaction with the resource cache. These methods are
+ * implemented in the subclass FileSystemTiledReader, and can be implemented in
+ * other ways in custom subclasses.</p>
  * 
  * <p>The TiledReader library does not support image data embedded directly in
  * TMX/TSX files. As of Tiled version 1.4.1, however, it is not possible to
@@ -64,12 +69,12 @@ import javax.xml.stream.XMLStreamReader;
  * official Tiled documentation on the subject</a>.</p>
  * @author Alex Heyman
  */
-public class TiledReader {
+public abstract class TiledReader {
     
     /**
-     * The version number of TiledReader. Currently 1.0.2.
+     * The version number of TiledReader. Currently 1.1.0.
      */
-    public static final String VERSION = "1.0.2";
+    public static final String VERSION = "1.1.0";
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
@@ -368,31 +373,100 @@ public class TiledReader {
     
     private static class ResourceData {
         
-        private TiledResource resource = null;
-        private final Set<File> referToThis = new HashSet<>();
-        private final Set<File> referencedByThis = new HashSet<>();
+        private final Set<String> referToThis = new HashSet<>();
+        private final Set<String> referencedByThis = new HashSet<>();
         
     }
     
-    private final Map<File,ResourceData> resources = new HashMap<>();
+    private final Map<String,ResourceData> resourceData = new HashMap<>();
     
-    private static File getCanonicalFile(String path) {
-        try {
-            return new File(path).getCanonicalFile();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    private TiledResource getResource(String path) {
+        TiledResource resource = getCachedResource(path);
+        if (resource == null) {
+            removeResource(path, false);
         }
+        return resource;
     }
     
-    private void ensureReference(File referer, File referent) {
-        resources.get(referer).referencedByThis.add(referent);
-        resources.get(referent).referToThis.add(referer);
+    private void ensureReference(String referer, String referent) {
+        resourceData.get(referer).referencedByThis.add(referent);
+        resourceData.get(referent).referToThis.add(referer);
     }
     
     /**
      * Constructs a new TiledReader.
      */
     public TiledReader() {}
+    
+    /**
+     * Returns a version of the specified path string that is both absolute and
+     * unique. In other words, the canonical path points to the same location
+     * regardless of the program's working directory, and only one canonical
+     * path corresponds to a given location. This method works similarly to
+     * <code>java.io.File.getCanonicalPath()</code>.
+     * @param path The path to find the canonical version of
+     * @return The canonical version of the specified path
+     */
+    public abstract String getCanonicalPath(String path);
+    
+    /**
+     * Returns a path string that points to the same location as the specified
+     * relative path does when followed from the location of the specified base
+     * path. The returned path is not necessarily canonical by the standards of
+     * getCanonicalPath(). This method works similarly to
+     * <code>java.nio.file.Path.resolve()</code>.
+     * @param basePath The base path
+     * @param relativePath The relative path
+     * @return A single path that points to the same location as the relative
+     * path followed from the base path
+     */
+    public abstract String joinPaths(String basePath, String relativePath);
+    
+    /**
+     * Returns an InputStream that reads the file data at the location of the
+     * specified path, which must be a canonical path by the standards of
+     * getCanonicalPath().
+     * @param path The canonical path to the file data
+     * @return An InputStream that reads from the path's location
+     */
+    public abstract InputStream getInputStream(String path);
+    
+    /**
+     * Returns the resource in the cache identified by the specified path, which
+     * must be a canonical path by the standards of getCanonicalPath(). Returns
+     * null if there is no such resource.
+     * @param path The canonical path to the file from which the resource was
+     * read
+     * @return The resource in the cache identified by the path
+     */
+    public abstract TiledResource getCachedResource(String path);
+    
+    /**
+     * Sets the cache to identify the specified resource by the specified path,
+     * which must be a canonical path by the standards of getCanonicalPath().
+     * This method must be implemented in subclasses of TiledReader, but must
+     * never be called outside of TiledReader library code.
+     * @param path The canonical path by which to identify the resource
+     * @param resource The resource to be identified by the path
+     */
+    protected abstract void setCachedResource(String path, TiledResource resource);
+    
+    /**
+     * Sets the cache to no longer identify any resource by the specified path,
+     * which must be a canonical path by the standards of getCanonicalPath().
+     * This method must be implemented in subclasses of TiledReader, but must
+     * never be called outside of TiledReader library code.
+     * @param path The canonical path that identifies the resource to remove
+     * from the cache
+     */
+    protected abstract void removeCachedResource(String path);
+    
+    /**
+     * Clears the cache, causing it to no longer identify any resource by any
+     * path. This method must be implemented in subclasses of TiledReader, but
+     * must never be called outside of TiledReader library code.
+     */
+    protected abstract void clearCachedResources();
     
     /**
      * Reads a Tiled map from the specified TMX file and returns it as a
@@ -403,21 +477,16 @@ public class TiledReader {
      * @return The Tiled map from the specified file
      */
     public TiledMap getMap(String path) {
-        if (!path.endsWith(".tmx")) {
-            throw new RuntimeException("Attempted to read a Tiled map from a path that does not point to a"
-                    + " TMX file: " + path);
-        }
-        File file = getCanonicalFile(path);
-        path = file.getPath();
-        ResourceData data = resources.get(file);
-        if (data == null) {
-            data = new ResourceData();
-            resources.put(file, data);
+        path = getCanonicalPath(path);
+        TiledMap map = (TiledMap)(getResource(path));
+        if (map == null) {
+            resourceData.put(path, new ResourceData());
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty("javax.xml.stream.isCoalescing", true);
             try {
-                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
                 LOGGER.log(Level.INFO, "Beginning to parse TMX file: {0}", path);
+                factory.setProperty("javax.xml.stream.isCoalescing", true);
+                XMLStreamReader reader = factory.createXMLStreamReader(getInputStream(path));
                 if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
                     next(reader);
                 }
@@ -426,8 +495,8 @@ public class TiledReader {
                         case XMLStreamConstants.START_ELEMENT:
                             switch (reader.getLocalName()) {
                                 case "map":
-                                    if (data.resource == null) {
-                                        data.resource = readMap(file, reader);
+                                    if (map == null) {
+                                        map = readMap(path, reader);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -445,15 +514,16 @@ public class TiledReader {
                     }
                     next(reader);
                 }
-                if (data.resource == null) {
+                if (map == null) {
                     throw new XMLStreamException("TMX file (" + path + ") contains no top-level <map> tag");
                 }
+                setCachedResource(path, map);
                 LOGGER.log(Level.INFO, "Finished parsing TMX file: {0}", path);
-            } catch (FileNotFoundException | XMLStreamException e) {
+            } catch (XMLStreamException e) {
                 throw new RuntimeException(e);
             }
         }
-        return (TiledMap)(data.resource);
+        return map;
     }
     
     /**
@@ -464,20 +534,14 @@ public class TiledReader {
      * @return The Tiled tileset from the specified file
      */
     public TiledTileset getTileset(String path) {
-        if (!path.endsWith(".tsx")) {
-            throw new RuntimeException("Attempted to read a Tiled tileset from a path that does not point to"
-                    + " a TSX file: " + path);
-        }
-        File file = getCanonicalFile(path);
-        path = file.getPath();
-        ResourceData data = resources.get(file);
-        if (data == null) {
-            data = new ResourceData();
-            resources.put(file, data);
+        path = getCanonicalPath(path);
+        TiledTileset tileset = (TiledTileset)(getCachedResource(path));
+        if (tileset == null) {
+            resourceData.put(path, new ResourceData());
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty("javax.xml.stream.isCoalescing", true);
             try {
-                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
+                XMLStreamReader reader = factory.createXMLStreamReader(getInputStream(path));
                 LOGGER.log(Level.INFO, "Beginning to parse TSX file: {0}", path);
                 if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
                     next(reader);
@@ -487,12 +551,11 @@ public class TiledReader {
                         case XMLStreamConstants.START_ELEMENT:
                             switch (reader.getLocalName()) {
                                 case "tileset":
-                                    if (data.resource == null) {
+                                    if (tileset == null) {
                                         Map<String,String> attributeValues
                                                 = getAttributeValues(reader, TSX_TILESET_ATTRIBUTES);
                                         checkVersion(reader, attributeValues.get("version"));
-                                        data.resource = readTileset(
-                                                file, true, reader, attributeValues, null);
+                                        tileset = readTileset(path, true, reader, attributeValues, null);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -510,16 +573,17 @@ public class TiledReader {
                     }
                     next(reader);
                 }
-                if (data.resource == null) {
+                if (tileset == null) {
                     throw new XMLStreamException("TSX file (" + path
                             + ") contains no top-level <tileset> tag");
                 }
+                setCachedResource(path, tileset);
                 LOGGER.log(Level.INFO, "Finished parsing TSX file: {0}", path);
-            } catch (FileNotFoundException | XMLStreamException e) {
+            } catch (XMLStreamException e) {
                 throw new RuntimeException(e);
             }
         }
-        return (TiledTileset)(data.resource);
+        return tileset;
     }
     
     /**
@@ -530,20 +594,14 @@ public class TiledReader {
      * @return The Tiled object template from the specified file
      */
     public TiledObjectTemplate getTemplate(String path) {
-        if (!path.endsWith(".tx")) {
-            throw new RuntimeException("Attempted to read a Tiled object template from a path that does not"
-                    + " point to a TX file: " + path);
-        }
-        File file = getCanonicalFile(path);
-        path = file.getPath();
-        ResourceData data = resources.get(file);
-        if (data == null) {
-            data = new ResourceData();
-            resources.put(file, data);
+        path = getCanonicalPath(path);
+        TiledObjectTemplate template = (TiledObjectTemplate)(getCachedResource(path));
+        if (template == null) {
+            resourceData.put(path, new ResourceData());
             XMLInputFactory factory = XMLInputFactory.newInstance();
             factory.setProperty("javax.xml.stream.isCoalescing", true);
             try {
-                XMLStreamReader reader = factory.createXMLStreamReader(new FileInputStream(file));
+                XMLStreamReader reader = factory.createXMLStreamReader(getInputStream(path));
                 LOGGER.log(Level.INFO, "Beginning to parse TX file: {0}", path);
                 if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
                     next(reader);
@@ -553,8 +611,8 @@ public class TiledReader {
                         case XMLStreamConstants.START_ELEMENT:
                             switch (reader.getLocalName()) {
                                 case "template":
-                                    if (data.resource == null) {
-                                        data.resource = readTemplate(file, reader);
+                                    if (template == null) {
+                                        template = readTemplate(path, reader);
                                     } else {
                                         ignoreRedundantTag(reader);
                                     }
@@ -572,70 +630,70 @@ public class TiledReader {
                     }
                     next(reader);
                 }
-                if (data.resource == null) {
+                if (template == null) {
                     throw new XMLStreamException("TX file (" + path
                             + ") contains no top-level <template> tag");
                 }
+                setCachedResource(path, template);
                 LOGGER.log(Level.INFO, "Finished parsing TX file: {0}", path);
-            } catch (FileNotFoundException | XMLStreamException e) {
+            } catch (XMLStreamException e) {
                 throw new RuntimeException(e);
             }
         }
-        return (TiledObjectTemplate)(data.resource);
+        return template;
     }
     
     /**
-     * Removes this TiledReader's pointer to the resource it read from the
-     * specified file, if it has read that file before.
+     * Removes this TiledReader's cached pointer to the resource it read from
+     * the specified file, if it has read that file before.
      * @param path The path to the file to forget about
-     * @param cleanUp If true, also remove the pointers to all of the resources
-     * referenced by the resource from the specified file, and not referenced by
-     * any of the other resources that this TiledReader still remembers. This
-     * parameter applies recursively, so if the removal of any of these
-     * "orphaned" resources causes more resources to be orphaned, those will be
-     * removed as well.
+     * @param cleanUp If true, also remove the cached pointers to all of the
+     * resources referenced by the resource from the specified file, and not
+     * referenced by any of the other resources that this TiledReader still
+     * remembers. This parameter applies recursively, so if the removal of any
+     * of these "orphaned" resources causes more resources to be orphaned, those
+     * will be removed as well.
      * @return Whether the specified file had been read before this method was
      * called, and hence whether the removal occurred
      */
     public boolean removeResource(String path, boolean cleanUp) {
-        return removeResource(getCanonicalFile(path), cleanUp);
-    }
-    
-    private boolean removeResource(File file, boolean cleanUp) {
-        ResourceData data = resources.get(file);
+        path = getCanonicalPath(path);
+        ResourceData data = resourceData.get(path);
         if (data == null) {
             return false;
         }
-        for (File refererFile : data.referToThis) {
-            resources.get(refererFile).referencedByThis.remove(file);
+        for (String refererPath : data.referToThis) {
+            resourceData.get(refererPath).referencedByThis.remove(path);
         }
         if (cleanUp) {
-            List<File> orphanedFiles = new ArrayList<>();
-            for (File referencedFile : data.referencedByThis) {
-                ResourceData referencedData = resources.get(referencedFile);
-                referencedData.referToThis.remove(file);
+            List<String> orphanedPaths = new ArrayList<>();
+            for (String referencedPath : data.referencedByThis) {
+                ResourceData referencedData = resourceData.get(referencedPath);
+                referencedData.referToThis.remove(path);
                 if (referencedData.referToThis.isEmpty()) {
-                    orphanedFiles.add(referencedFile);
+                    orphanedPaths.add(referencedPath);
                 }
             }
-            for (File orphanedFile : orphanedFiles) {
-                removeResource(orphanedFile, true);
+            for (String orphanedPath : orphanedPaths) {
+                removeResource(orphanedPath, true);
             }
         } else {
-            for (File referencedFile : data.referencedByThis) {
-                resources.get(referencedFile).referToThis.remove(file);
+            for (String referencedPath : data.referencedByThis) {
+                resourceData.get(referencedPath).referToThis.remove(path);
             }
         }
-        resources.remove(file);
+        resourceData.remove(path);
+        removeCachedResource(path);
         return true;
     }
     
     /**
-     * Removes all of this TiledReader's pointers to resources that it has read
-     * from files.
+     * Removes all of this TiledReader's cached pointers to resources that it
+     * has read from files.
      */
     public void clearResources() {
-        resources.clear();
+        resourceData.clear();
+        clearCachedResources();
     }
     
     private static String describeReaderLocation(XMLStreamReader reader) {
@@ -773,7 +831,7 @@ public class TiledReader {
         }
     }
     
-    private static int parseInt(XMLStreamReader reader, String attribute, String value,
+    private int parseInt(XMLStreamReader reader, String attribute, String value,
             boolean useDefault, int default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -790,12 +848,11 @@ public class TiledReader {
         }
     }
     
-    private static int parseInt(XMLStreamReader reader, String attribute, String value)
-            throws XMLStreamException {
+    private int parseInt(XMLStreamReader reader, String attribute, String value) throws XMLStreamException {
         return parseInt(reader, attribute, value, false, 0);
     }
     
-    private static float parseFloat(XMLStreamReader reader, String attribute, String value,
+    private float parseFloat(XMLStreamReader reader, String attribute, String value,
             boolean useDefault, float default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -812,12 +869,12 @@ public class TiledReader {
         }
     }
     
-    private static float parseFloat(XMLStreamReader reader, String attribute, String value)
+    private float parseFloat(XMLStreamReader reader, String attribute, String value)
             throws XMLStreamException {
         return parseFloat(reader, attribute, value, false, 0);
     }
     
-    private static boolean parseBoolean(XMLStreamReader reader, String attribute, String value,
+    private boolean parseBoolean(XMLStreamReader reader, String attribute, String value,
             boolean useDefault, boolean default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -834,12 +891,12 @@ public class TiledReader {
         }
     }
     
-    private static boolean parseBoolean(XMLStreamReader reader, String attribute, String value)
+    private boolean parseBoolean(XMLStreamReader reader, String attribute, String value)
             throws XMLStreamException {
         return parseBoolean(reader, attribute, value, false, false);
     }
     
-    private static boolean parseBooleanFromInt(XMLStreamReader reader, String attribute, String value,
+    private boolean parseBooleanFromInt(XMLStreamReader reader, String attribute, String value,
             boolean useDefault, boolean default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -863,12 +920,12 @@ public class TiledReader {
         }
     }
     
-    private static boolean parseBooleanFromInt(XMLStreamReader reader, String attribute, String value)
+    private boolean parseBooleanFromInt(XMLStreamReader reader, String attribute, String value)
             throws XMLStreamException {
         return parseBooleanFromInt(reader, attribute, value, false, false);
     }
     
-    private static <E extends Enum<E>> E parseEnumValue(Class<E> cls, XMLStreamReader reader,
+    private <E extends Enum<E>> E parseEnumValue(Class<E> cls, XMLStreamReader reader,
             String attribute, String value, boolean useDefault, E default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -896,12 +953,12 @@ public class TiledReader {
         }
     }
     
-    private static <E extends Enum<E>> E parseEnumValue(Class<E> cls, XMLStreamReader reader,
+    private <E extends Enum<E>> E parseEnumValue(Class<E> cls, XMLStreamReader reader,
             String attribute, String value) throws XMLStreamException {
         return parseEnumValue(cls, reader, attribute, value, false, null);
     }
     
-    private static int parseHexDigit(char digitChar) {
+    private int parseHexDigit(char digitChar) {
         char upperChar = Character.toUpperCase(digitChar);
         if (upperChar >= '0' && upperChar <= '9') {
             return upperChar - '0';
@@ -912,7 +969,7 @@ public class TiledReader {
         }
     }
     
-    private static Color parseColor(XMLStreamReader reader, String attribute, String value,
+    private Color parseColor(XMLStreamReader reader, String attribute, String value,
             boolean useDefault, Color default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
@@ -946,13 +1003,13 @@ public class TiledReader {
         return null;
     }
     
-    private static Color parseColor(XMLStreamReader reader, String attribute, String value)
+    private Color parseColor(XMLStreamReader reader, String attribute, String value)
             throws XMLStreamException {
         return parseColor(reader, attribute, value, false, null);
     }
     
-    private static File parseFile(File file, XMLStreamReader reader, String attribute, String value,
-            boolean useDefault, File default_) throws XMLStreamException {
+    private String parseFile(String path, XMLStreamReader reader, String attribute, String value,
+            boolean useDefault, String default_) throws XMLStreamException {
         if (value == null) {
             if (useDefault) {
                 return default_;
@@ -960,12 +1017,12 @@ public class TiledReader {
                 throwMissingAttributeException(reader, attribute);
             }
         }
-        return getCanonicalFile(file.toPath().resolveSibling(value).toString());
+        return getCanonicalPath(joinPaths(path, value));
     }
     
-    private static File parseFile(File file, XMLStreamReader reader, String attribute, String value)
+    private String parseFile(String path, XMLStreamReader reader, String attribute, String value)
             throws XMLStreamException {
-        return parseFile(file, reader, attribute, value, false, null);
+        return parseFile(path, reader, attribute, value, false, null);
     }
     
     private static class ReferencedTileset {
@@ -1030,7 +1087,7 @@ public class TiledReader {
         
     }
     
-    private TiledMap readMap(File file, XMLStreamReader reader) throws XMLStreamException {
+    private TiledMap readMap(String path, XMLStreamReader reader) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, MAP_ATTRIBUTES);
         
         String version = attributeValues.get("version");
@@ -1102,7 +1159,7 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1112,22 +1169,22 @@ public class TiledReader {
                                 throw new XMLStreamException(describeReaderLocation(reader)
                                         + ": <tileset> tag occurs after the first <layer> tag");
                             }
-                            tileData.tilesets.add(readTMXTileset(file, reader, propertyObjectsToResolve));
+                            tileData.tilesets.add(readTMXTileset(path, reader, propertyObjectsToResolve));
                             break;
                         case "layer":
-                            layer = readLayer(file, reader, nonGroupLayers, readLayerIDs, null,
+                            layer = readLayer(path, reader, nonGroupLayers, readLayerIDs, null,
                                     tileData, propertyObjectsToResolve);
                             break;
                         case "objectgroup":
-                            layer = readMapObjectGroup(file, reader, nonGroupLayers, readLayerIDs, null,
+                            layer = readMapObjectGroup(path, reader, nonGroupLayers, readLayerIDs, null,
                                     allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            layer = readImageLayer(file, reader, nonGroupLayers, readLayerIDs, null,
+                            layer = readImageLayer(path, reader, nonGroupLayers, readLayerIDs, null,
                                     propertyObjectsToResolve);
                             break;
                         case "group":
-                            layer = readGroup(file, reader, nonGroupLayers, readLayerIDs, null, tileData,
+                            layer = readGroup(path, reader, nonGroupLayers, readLayerIDs, null, tileData,
                                     allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
@@ -1168,12 +1225,12 @@ public class TiledReader {
             objectToResolve.object.tile = tileData.gidTiles.get(objectToResolve.gid);
         }
         
-        return new TiledMap(file.getPath(), orientation, renderOrder, width, height,
+        return new TiledMap(this, path, orientation, renderOrder, width, height,
                 tileWidth, tileHeight, hexSideLength, staggerAxis, staggerIndex, backgroundColor,
                 mapTilesets, topLevelLayers, nonGroupLayers, properties);
     }
     
-    private TiledTileset readTileset(File file, boolean fileIsTSX, XMLStreamReader reader,
+    private TiledTileset readTileset(String path, boolean pathIsTSX, XMLStreamReader reader,
             Map<String,String> attributeValues, List<PropertyObjectData> propertyObjectsToResolve)
             throws XMLStreamException {
         String startLocation = describeReaderLocation(reader);
@@ -1240,14 +1297,14 @@ public class TiledReader {
                             break;
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "image":
                             if (image == null) {
-                                image = readImage(file, reader);
+                                image = readImage(path, reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1260,7 +1317,7 @@ public class TiledReader {
                             }
                             break;
                         case "tile":
-                            readTilesetTile(file, reader, idTiles, readTileIDs, tileTerrainTypes,
+                            readTilesetTile(path, reader, idTiles, readTileIDs, tileTerrainTypes,
                                     propertyObjectsToResolve);
                             break;
                         case "wangsets":
@@ -1354,7 +1411,16 @@ public class TiledReader {
             }
         }
         
-        TiledTileset tileset = new TiledTileset((fileIsTSX ? file.getPath() : null), name, tileWidth,
+        TiledReader resourceReader;
+        String resourcePath;
+        if (pathIsTSX) {
+            resourceReader = this;
+            resourcePath = path;
+        } else {
+            resourceReader = null;
+            resourcePath = null;
+        }
+        TiledTileset tileset = new TiledTileset(resourceReader, resourcePath, name, tileWidth,
                 tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
                 gridOrientation, gridWidth, gridHeight, image, terrainTypes, wangSets, properties);
         for (TiledTile tile : idTiles.values()) {
@@ -1372,7 +1438,7 @@ public class TiledReader {
         return tile;
     }
     
-    private ReferencedTileset readTMXTileset(File file, XMLStreamReader reader,
+    private ReferencedTileset readTMXTileset(String path, XMLStreamReader reader,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TMX_TILESET_ATTRIBUTES);
         int firstGID = parseInt(reader, "firstgid", attributeValues.get("firstgid"));
@@ -1387,25 +1453,25 @@ public class TiledReader {
                     throwMissingAttributeException(reader, entry.getKey());
                 }
             }
-            tileset = readTileset(file, false, reader, attributeValues, propertyObjectsToResolve);
+            tileset = readTileset(path, false, reader, attributeValues, propertyObjectsToResolve);
         } else {
-            File source = parseFile(file, reader, "source", sourceStr);
-            tileset = getTileset(source.getPath());
-            ensureReference(file, source);
+            String source = parseFile(path, reader, "source", sourceStr);
+            tileset = getTileset(source);
+            ensureReference(path, source);
             finishTag(reader);
         }
         return new ReferencedTileset(tileset, firstGID);
     }
     
-    private ReferencedTileset readTXTileset(File file, XMLStreamReader reader) throws XMLStreamException {
+    private ReferencedTileset readTXTileset(String path, XMLStreamReader reader) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TX_TILESET_ATTRIBUTES);
         int firstGID = parseInt(reader, "firstgid", attributeValues.get("firstgid"));
         if (firstGID < 0) {
             throwInvalidValueException(reader, "firstgid", firstGID, "value must be non-negative");
         }
-        File source = parseFile(file, reader, "source", attributeValues.get("source"));
-        TiledTileset tileset = getTileset(source.getPath());
-        ensureReference(file, source);
+        String source = parseFile(path, reader, "source", attributeValues.get("source"));
+        TiledTileset tileset = getTileset(source);
+        ensureReference(path, source);
         finishTag(reader);
         return new ReferencedTileset(tileset, firstGID);
     }
@@ -1442,7 +1508,7 @@ public class TiledReader {
         return new Grid(orientation, width, height);
     }
     
-    private TiledImage readImage(File file, XMLStreamReader reader) throws XMLStreamException {
+    private TiledImage readImage(String path, XMLStreamReader reader) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, IMAGE_ATTRIBUTES);
         
         Color trans = parseColor(reader, "trans", attributeValues.get("trans"), true, null);
@@ -1469,15 +1535,15 @@ public class TiledReader {
                 giveUnexpectedAttributeWarning(reader, "format");
             }
             //image = null;
-            source = readExternalImage(file, reader, sourceStr);
+            source = readExternalImage(path, reader, sourceStr);
         }
         //return new TiledImage(image, source, trans, width, height);
         return new TiledImage(source, trans, width, height);
     }
     
-    private String readExternalImage(File file, XMLStreamReader reader, String sourceStr)
+    private String readExternalImage(String path, XMLStreamReader reader, String sourceStr)
             throws XMLStreamException {
-        String source = parseFile(file, reader, "source", sourceStr).getPath();
+        String source = parseFile(path, reader, "source", sourceStr);
         finishTag(reader);
         return source;
     }
@@ -1535,7 +1601,7 @@ public class TiledReader {
         
     }
     
-    private void readTilesetTile(File file, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
+    private void readTilesetTile(String path, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
             Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TILESET_TILE_ATTRIBUTES);
@@ -1604,21 +1670,21 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "image":
                             if (image == null) {
-                                image = readImage(file, reader);
+                                image = readImage(path, reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "objectgroup":
                             if (collisionObjects == null) {
-                                collisionObjects = readTileObjectGroup(file, reader);
+                                collisionObjects = readTileObjectGroup(path, reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1840,7 +1906,7 @@ public class TiledReader {
         }
     }
     
-    private TiledTileLayer readLayer(File file, XMLStreamReader reader, List<TiledLayer> nonGroupLayers,
+    private TiledTileLayer readLayer(String path, XMLStreamReader reader, List<TiledLayer> nonGroupLayers,
             Set<Integer> readLayerIDs, TiledGroupLayer parent, MapTileData tileData,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         if (tileData.gidTiles == null) {
@@ -1880,7 +1946,7 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -2241,7 +2307,7 @@ public class TiledReader {
         return gid;
     }
     
-    private TiledObjectLayer readMapObjectGroup(File file, XMLStreamReader reader,
+    private TiledObjectLayer readMapObjectGroup(String path, XMLStreamReader reader,
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
             Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
             List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
@@ -2276,13 +2342,13 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "object":
-                            readObject(file, reader, objects,
+                            readObject(path, reader, objects,
                                     allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
@@ -2306,7 +2372,7 @@ public class TiledReader {
         return layer;
     }
     
-    private List<TiledObject> readTileObjectGroup(File file, XMLStreamReader reader)
+    private List<TiledObject> readTileObjectGroup(String path, XMLStreamReader reader)
             throws XMLStreamException {
         getAttributeValues(reader, TILE_OBJECTGROUP_ATTRIBUTES);
         
@@ -2319,7 +2385,7 @@ public class TiledReader {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "object":
-                            readObject(file, reader,
+                            readObject(path, reader,
                                     objects, allObjectsByID, propertyObjectsToResolve, null);
                             break;
                         default:
@@ -2552,7 +2618,7 @@ public class TiledReader {
         }
     }
     
-    private void readObjectData(File file, XMLStreamReader reader, ObjectData data,
+    private void readObjectData(String path, XMLStreamReader reader, ObjectData data,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         boolean propertiesRead = false;
         boolean shapeRead = false;
@@ -2566,7 +2632,7 @@ public class TiledReader {
                                 ignoreRedundantTag(reader);
                             } else {
                                 Map<String,Object> oldProperties = data.properties;
-                                data.properties = readProperties(file, reader, propertyObjectsToResolve);
+                                data.properties = readProperties(path, reader, propertyObjectsToResolve);
                                 data.properties.putAll(oldProperties);
                             }
                             break;
@@ -2597,7 +2663,7 @@ public class TiledReader {
         }
     }
     
-    private void readObject(File file, XMLStreamReader reader, List<TiledObject> objects,
+    private void readObject(String path, XMLStreamReader reader, List<TiledObject> objects,
             Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
             List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
         //tileObjectsToResolve == null iff the object being read is one of a tile's collision objects
@@ -2612,20 +2678,21 @@ public class TiledReader {
         float x = parseFloat(reader, "x", attributeValues.get("x"));
         float y = parseFloat(reader, "y", attributeValues.get("y"));
         
-        File templateFile = parseFile(file, reader, "template", attributeValues.get("template"), true, null);
+        String templatePath = parseFile(path, reader,
+                "template", attributeValues.get("template"), true, null);
         TiledObjectTemplate template;
         ObjectData data;
-        if (templateFile == null) {
+        if (templatePath == null) {
             template = null;
             data = new ObjectData();
         } else {
-            template = getTemplate(templateFile.getPath());
-            ensureReference(file, templateFile);
+            template = getTemplate(templatePath);
+            ensureReference(path, templatePath);
             data = new ObjectData(template);
         }
         
         updateObjectData(reader, data, attributeValues);
-        readObjectData(file, reader, data, propertyObjectsToResolve);
+        readObjectData(path, reader, data, propertyObjectsToResolve);
         
         if (tileObjectsToResolve == null) {
             data.unresolvedGID = 0;
@@ -2641,15 +2708,15 @@ public class TiledReader {
         }
     }
     
-    private ObjectData readTemplateObject(File file, XMLStreamReader reader) throws XMLStreamException {
+    private ObjectData readTemplateObject(String path, XMLStreamReader reader) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TEMPLATE_OBJECT_ATTRIBUTES);
         ObjectData data = new ObjectData();
         updateObjectData(reader, data, attributeValues);
-        readObjectData(file, reader, data, null);
+        readObjectData(path, reader, data, null);
         return data;
     }
     
-    private TiledImageLayer readImageLayer(File file, XMLStreamReader reader,
+    private TiledImageLayer readImageLayer(String path, XMLStreamReader reader,
             List<TiledLayer> nonGroupLayers, Set<Integer> readLayerIDs, TiledGroupLayer parent,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, IMAGELAYER_ATTRIBUTES);
@@ -2679,14 +2746,14 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "image":
                             if (image == null) {
-                                image = readImage(file, reader);
+                                image = readImage(path, reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -2712,7 +2779,7 @@ public class TiledReader {
         return layer;
     }
     
-    private TiledGroupLayer readGroup(File file, XMLStreamReader reader, List<TiledLayer> nonGroupLayers,
+    private TiledGroupLayer readGroup(String path, XMLStreamReader reader, List<TiledLayer> nonGroupLayers,
             Set<Integer> readLayerIDs, TiledGroupLayer parent, MapTileData tileData,
             Map<Integer,TiledObject> allObjectsByID, List<PropertyObjectData> propertyObjectsToResolve,
             List<TileObjectToResolve> tileObjectsToResolve) throws XMLStreamException {
@@ -2743,25 +2810,25 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "properties":
                             if (properties == null) {
-                                properties = readProperties(file, reader, propertyObjectsToResolve);
+                                properties = readProperties(path, reader, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
                             break;
                         case "layer":
-                            readLayer(file, reader, nonGroupLayers, readLayerIDs, group,
+                            readLayer(path, reader, nonGroupLayers, readLayerIDs, group,
                                     tileData, propertyObjectsToResolve);
                             break;
                         case "objectgroup":
-                            readMapObjectGroup(file, reader, nonGroupLayers, readLayerIDs, group,
+                            readMapObjectGroup(path, reader, nonGroupLayers, readLayerIDs, group,
                                     allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         case "imagelayer":
-                            readImageLayer(file, reader, nonGroupLayers, readLayerIDs, group,
+                            readImageLayer(path, reader, nonGroupLayers, readLayerIDs, group,
                                     propertyObjectsToResolve);
                             break;
                         case "group":
-                            readGroup(file, reader, nonGroupLayers, readLayerIDs, group, tileData,
+                            readGroup(path, reader, nonGroupLayers, readLayerIDs, group, tileData,
                                     allObjectsByID, propertyObjectsToResolve, tileObjectsToResolve);
                             break;
                         default:
@@ -2784,7 +2851,7 @@ public class TiledReader {
         return group;
     }
     
-    private Map<String,Object> readProperties(File file, XMLStreamReader reader,
+    private Map<String,Object> readProperties(String path, XMLStreamReader reader,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
         Map<String,Object> properties = new HashMap<>();
@@ -2794,7 +2861,7 @@ public class TiledReader {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "property":
-                            readProperty(file, reader, properties, propertyObjectsToResolve);
+                            readProperty(path, reader, properties, propertyObjectsToResolve);
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2812,7 +2879,7 @@ public class TiledReader {
         return properties;
     }
     
-    private void readProperty(File file, XMLStreamReader reader, Map<String,Object> properties,
+    private void readProperty(String path, XMLStreamReader reader, Map<String,Object> properties,
             List<PropertyObjectData> propertyObjectsToResolve) throws XMLStreamException {
         //propertyObjectsToResolve == null iff object properties are invalid in the current context
         //(e.g. if these are the properties of a tileset not embedded in a map)
@@ -2878,7 +2945,7 @@ public class TiledReader {
                     properties.put(name, parseColor(reader, "value", valueStr, true, new Color(0, 0, 0, 0)));
                     break;
                 case "file":
-                    properties.put(name, parseFile(file, reader, "value", valueStr, true, new File(".")));
+                    properties.put(name, new TiledFile(parseFile(path, reader, "value", valueStr, true, ".")));
                     break;
                 case "object":
                     if (propertyObjectsToResolve == null) {
@@ -2897,7 +2964,7 @@ public class TiledReader {
         }
     }
     
-    private TiledObjectTemplate readTemplate(File file, XMLStreamReader reader) throws XMLStreamException {
+    private TiledObjectTemplate readTemplate(String path, XMLStreamReader reader) throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
         
         TiledTileset tileset = null;
@@ -2910,7 +2977,7 @@ public class TiledReader {
                     switch (reader.getLocalName()) {
                         case "tileset":
                             if (tileset == null) {
-                                ReferencedTileset referencedTileset = readTXTileset(file, reader);
+                                ReferencedTileset referencedTileset = readTXTileset(path, reader);
                                 tileset = referencedTileset.tileset;
                                 firstGID = referencedTileset.firstGID;
                             } else {
@@ -2919,7 +2986,7 @@ public class TiledReader {
                             break;
                         case "object":
                             if (data == null) {
-                                data = readTemplateObject(file, reader);
+                                data = readTemplateObject(path, reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -2956,7 +3023,7 @@ public class TiledReader {
             }
         }
         
-        return new TiledObjectTemplate(file.getPath(),
+        return new TiledObjectTemplate(this, path,
                 data.name, data.type, data.width, data.height, data.rotation, objectTile, data.tileFlags,
                 data.visible, data.shape, data.points, data.text, data.properties);
     }

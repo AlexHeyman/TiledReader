@@ -23,9 +23,10 @@ public class TiledImage {
     }
     
     /**
-     * Returns the relative path (from the program's working directory) to this
-     * image's file.
-     * @return The relative path to this image's file
+     * Returns the path to this image's file. The path is an absolute path
+     * returned by the getCanonicalPath() method of the TiledReader that read
+     * this image's path.
+     * @return The path to this image's file
      */
     public final String getSource() {
         return source;
