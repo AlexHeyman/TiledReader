@@ -34,8 +34,18 @@ import javax.xml.stream.XMLStreamReader;
 /**
  * <p>The TiledReader class is the main class of the TiledReader library, and
  * the library's means of accessing Tiled files. Instances of TiledReader have
- * methods that read Tiled maps, tilesets, and object templates from specified
- * files.</p>
+ * methods that read Tiled maps, tilesets, object templates, and object types
+ * from specified files.</p>
+ * 
+ * <p>A TiledReader stores a pointer to a set of object types, represented as an
+ * instance of the TiledObjectTypes class. It uses this information to determine
+ * the default values of the custom properties of any Tiled objects it reads,
+ * as an implementation of Tiled's "Object Types Editor" feature. A
+ * TiledReader's set of object types can be replaced manually, and a TiledReader
+ * can read new sets of object types from the XML files in which Tiled stores
+ * them. Tiled's default, global object types file is called
+ * <code>objecttypes.xml</code>, and its location may depend on your operating
+ * system.</p>
  * 
  * <p>A TiledReader stores a cache of pointers to the maps, tilesets, and object
  * templates corresponding to all of the files it has read, which is indexed by
@@ -78,9 +88,9 @@ public abstract class TiledReader {
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
-     * for. Currently 1.4.1.
+     * for. Currently 1.4.2.
      */
-    public static final String TILED_VERSION = "1.4.1";
+    public static final String TILED_VERSION = "1.4.2";
     
     /**
      * The version of the TMX file format that this version of TiledReader was
@@ -113,6 +123,19 @@ public abstract class TiledReader {
             initEventTypeNames();
         }
         return EVENT_TYPE_NAMES.get(eventType);
+    }
+    
+    private static final Map<String,Boolean> OBJECTTYPE_ATTRIBUTES = new HashMap<>();
+    static {
+        OBJECTTYPE_ATTRIBUTES.put("name", true);
+        OBJECTTYPE_ATTRIBUTES.put("color", true);
+    }
+    
+    private static final Map<String,Boolean> OBJECTTYPE_PROPERTY_ATTRIBUTES = new HashMap<>();
+    static {
+        OBJECTTYPE_PROPERTY_ATTRIBUTES.put("name", true);
+        OBJECTTYPE_PROPERTY_ATTRIBUTES.put("type", true);
+        OBJECTTYPE_PROPERTY_ATTRIBUTES.put("default", true);
     }
     
     private static final Map<String,Boolean> MAP_ATTRIBUTES = new HashMap<>();
@@ -371,6 +394,8 @@ public abstract class TiledReader {
     
     private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
     
+    private TiledObjectTypes objectTypes = null;
+    
     private static class ResourceData {
         
         private final Set<String> referToThis = new HashSet<>();
@@ -469,6 +494,76 @@ public abstract class TiledReader {
     protected abstract void clearCachedResources();
     
     /**
+     * Returns this TiledReader's set of object types. By default, this is null,
+     * indicating no object types.
+     * @return This TiledReader's set of object types
+     */
+    public final TiledObjectTypes getObjectTypes() {
+        return objectTypes;
+    }
+    
+    /**
+     * Sets this TiledReader's set of object types to the specified value.
+     * @param objectTypes This TiledReader's new set of object types. If this is
+     * null, this TiledReader will ave no object types.
+     */
+    public final void setObjectTypes(TiledObjectTypes objectTypes) {
+        this.objectTypes = objectTypes;
+    }
+    
+    /**
+     * Reads the set of object types from the specified object types XML file
+     * and returns it as a TiledObjectTypes object.
+     * @param path The path to the object types file to read
+     * @return The set of object types from the specified file
+     */
+    public final TiledObjectTypes readObjectTypes(String path) {
+        path = getCanonicalPath(path);
+        TiledObjectTypes readObjectTypes = null;
+        XMLInputFactory factory = XMLInputFactory.newInstance();
+        factory.setProperty("javax.xml.stream.isCoalescing", true);
+        try {
+            LOGGER.log(Level.INFO, "Beginning to parse Tiled object types file: {0}", path);
+            XMLStreamReader reader = factory.createXMLStreamReader(getInputStream(path));
+            if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
+                next(reader);
+            }
+            OUTER: while (true) {
+                switch (reader.getEventType()) {
+                    case XMLStreamConstants.START_ELEMENT:
+                        switch (reader.getLocalName()) {
+                            case "objecttypes":
+                                if (readObjectTypes == null) {
+                                    readObjectTypes = readObjectTypes(path, reader);
+                                } else {
+                                    ignoreRedundantTag(reader);
+                                }
+                                break;
+                            default:
+                                ignoreUnexpectedTag(reader);
+                                break;
+                        }
+                        break;
+                    case XMLStreamConstants.END_DOCUMENT:
+                        break OUTER;
+                    default:
+                        ignoreUnexpectedEvent(reader);
+                        break;
+                }
+                next(reader);
+            }
+            if (readObjectTypes == null) {
+                throw new XMLStreamException("Tiled object types file (" + path
+                        + ") contains no top-level <objecttypes> tag");
+            }
+            LOGGER.log(Level.INFO, "Finished parsing Tiled object types file: {0}", path);
+        } catch (XMLStreamException e) {
+            throw new RuntimeException(e);
+        }
+        return readObjectTypes;
+    }
+    
+    /**
      * Reads a Tiled map from the specified TMX file and returns it as a
      * TiledMap object. If the Tiled map references any tilesets or object
      * templates in external files, those files will be automatically read as
@@ -476,7 +571,7 @@ public abstract class TiledReader {
      * @param path The path to the TMX file to read
      * @return The Tiled map from the specified file
      */
-    public TiledMap getMap(String path) {
+    public final TiledMap getMap(String path) {
         path = getCanonicalPath(path);
         TiledMap map = (TiledMap)(getResource(path));
         if (map == null) {
@@ -485,7 +580,6 @@ public abstract class TiledReader {
             factory.setProperty("javax.xml.stream.isCoalescing", true);
             try {
                 LOGGER.log(Level.INFO, "Beginning to parse TMX file: {0}", path);
-                factory.setProperty("javax.xml.stream.isCoalescing", true);
                 XMLStreamReader reader = factory.createXMLStreamReader(getInputStream(path));
                 if (reader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
                     next(reader);
@@ -533,7 +627,7 @@ public abstract class TiledReader {
      * @param path The path to the TSX file to read
      * @return The Tiled tileset from the specified file
      */
-    public TiledTileset getTileset(String path) {
+    public final TiledTileset getTileset(String path) {
         path = getCanonicalPath(path);
         TiledTileset tileset = (TiledTileset)(getCachedResource(path));
         if (tileset == null) {
@@ -593,7 +687,7 @@ public abstract class TiledReader {
      * @param path The path to the TX file to read
      * @return The Tiled object template from the specified file
      */
-    public TiledObjectTemplate getTemplate(String path) {
+    public final TiledObjectTemplate getTemplate(String path) {
         path = getCanonicalPath(path);
         TiledObjectTemplate template = (TiledObjectTemplate)(getCachedResource(path));
         if (template == null) {
@@ -656,7 +750,7 @@ public abstract class TiledReader {
      * @return Whether the specified file had been read before this method was
      * called, and hence whether the removal occurred
      */
-    public boolean removeResource(String path, boolean cleanUp) {
+    public final boolean removeResource(String path, boolean cleanUp) {
         path = getCanonicalPath(path);
         ResourceData data = resourceData.get(path);
         if (data == null) {
@@ -691,7 +785,7 @@ public abstract class TiledReader {
      * Removes all of this TiledReader's cached pointers to resources that it
      * has read from files.
      */
-    public void clearResources() {
+    public final void clearResources() {
         resourceData.clear();
         clearCachedResources();
     }
@@ -1059,6 +1153,133 @@ public abstract class TiledReader {
             }
         }
         
+    }
+    
+    private TiledObjectTypes readObjectTypes(String path, XMLStreamReader reader) throws XMLStreamException {
+        getAttributeValues(reader, Collections.emptyMap());
+        Map<String,TiledObjectType> objectTypesMap = new HashMap<>();
+        OUTER: while (true) {
+            next(reader);
+            switch (reader.getEventType()) {
+                case XMLStreamConstants.START_ELEMENT:
+                    switch (reader.getLocalName()) {
+                        case "objecttype":
+                            readObjectType(path, reader, objectTypesMap);
+                            break;
+                        default:
+                            ignoreUnexpectedTag(reader);
+                            break;
+                    }
+                    break;
+                case XMLStreamConstants.END_ELEMENT:
+                    checkEndTagMatch(reader, "objecttypes");
+                    break OUTER;
+                default:
+                    ignoreUnexpectedEvent(reader);
+                    break;
+            }
+        }
+        return new TiledObjectTypes(objectTypesMap);
+    }
+    
+    private void readObjectType(String path, XMLStreamReader reader,
+            Map<String,TiledObjectType> objectTypesMap) throws XMLStreamException {
+        Map<String,String> attributeValues = getAttributeValues(reader, OBJECTTYPE_ATTRIBUTES);
+        
+        String name = attributeValues.get("name");
+        if (objectTypesMap.containsKey(name)) {
+            ignoreRedundantTag(reader);
+            return;
+        }
+        
+        Color color = parseColor(reader, "color", attributeValues.get("color"));
+        
+        Map<String,Object> properties = new HashMap<>();
+        OUTER: while (true) {
+            next(reader);
+            switch (reader.getEventType()) {
+                case XMLStreamConstants.START_ELEMENT:
+                    switch (reader.getLocalName()) {
+                        case "property":
+                            readObjectTypeProperty(path, reader, properties);
+                            break;
+                        default:
+                            ignoreUnexpectedTag(reader);
+                            break;
+                    }
+                    break;
+                case XMLStreamConstants.END_ELEMENT:
+                    checkEndTagMatch(reader, "objecttype");
+                    break OUTER;
+                default:
+                    ignoreUnexpectedEvent(reader);
+                    break;
+            }
+        }
+        
+        objectTypesMap.put(name, new TiledObjectType(name, color, properties));
+    }
+    
+    private void readObjectTypeProperty(String path, XMLStreamReader reader, Map<String,Object> properties)
+            throws XMLStreamException {
+        Map<String,String> attributeValues = getAttributeValues(reader, OBJECTTYPE_PROPERTY_ATTRIBUTES);
+        
+        String name = attributeValues.get("name");
+        if (properties.containsKey(name)) {
+            ignoreRedundantTag(reader);
+            return;
+        }
+        
+        String type = attributeValues.get("type");
+        String[] acceptableTypes = {"string", "int", "float", "bool", "color", "file"};
+        if (Arrays.asList(acceptableTypes).indexOf(type) == -1) {
+            throwInvalidValueException(reader, "type", type,
+                    "value must be one of the following: " + String.join(", ", acceptableTypes));
+        }
+        
+        String defaultStr = attributeValues.get("default");
+        
+        OUTER: while (true) {
+            next(reader);
+            switch (reader.getEventType()) {
+                case XMLStreamConstants.START_ELEMENT:
+                    ignoreUnexpectedTag(reader);
+                    break;
+                case XMLStreamConstants.END_ELEMENT:
+                    checkEndTagMatch(reader, "property");
+                    break OUTER;
+                default:
+                    ignoreUnexpectedEvent(reader);
+                    break;
+            }
+        }
+        
+        try {
+            switch (type) {
+                case "string":
+                    properties.put(name, (defaultStr == null ? "" : defaultStr));
+                    break;
+                case "int":
+                    properties.put(name, parseInt(reader, "value", defaultStr, true, 0));
+                    break;
+                case "float":
+                    properties.put(name, parseFloat(reader, "value", defaultStr, true, 0));
+                    break;
+                case "bool":
+                    properties.put(name, parseBoolean(reader, "value", defaultStr, true, false));
+                    break;
+                case "color":
+                    properties.put(name, parseColor(reader, "value", defaultStr, true, new Color(0, 0, 0, 0)));
+                    break;
+                case "file":
+                    properties.put(name, new TiledFile(parseFile(path, reader, "value", defaultStr, true, ".")));
+                    break;
+            }
+        } catch (XMLStreamException e) {
+            throw new XMLStreamException(describeReaderLocation(reader)
+                + ": <property> tag (value type: " + type
+                    + ") specifies an invalid default value (" + defaultStr + ")");
+        }
     }
     
     private static class PropertyObjectData {
@@ -2443,31 +2664,36 @@ public abstract class TiledReader {
             properties = new HashMap<>();
         }
         
-        private ObjectData(TiledObjectTemplate template) {
-            name = template.getName();
-            type = template.getType();
-            width = template.getWidth();
-            height = template.getHeight();
-            rotation = template.getRotation();
-            unresolvedGID = 0;
-            tile = template.getTile();
-            tileFlags = 0;
-            if (template.getTileXFlip()) {
-                tileFlags |= TiledTileLayer.FL_FLIPX;
-            }
-            if (template.getTileYFlip()) {
-                tileFlags |= TiledTileLayer.FL_FLIPY;
-            }
-            if (template.getTileDFlip()) {
-                tileFlags |= TiledTileLayer.FL_FLIPD;
-            }
-            visible = template.getVisible();
-            shape = template.getShape();
-            points = template.getPoints();
-            text = template.getText();
-            properties = new HashMap<>(template.getProperties());
+    }
+    
+    private void updateObjectData(ObjectData data, Map<String,Object> properties) {
+        data.properties = new HashMap<>(data.properties);
+        data.properties.putAll(properties);
+    }
+    
+    private void updateObjectData(ObjectData data, TiledObjectTemplate template) {
+        data.name = template.getName();
+        data.type = template.getType();
+        data.width = template.getWidth();
+        data.height = template.getHeight();
+        data.rotation = template.getRotation();
+        data.unresolvedGID = 0;
+        data.tile = template.getTile();
+        data.tileFlags = 0;
+        if (template.getTileXFlip()) {
+            data.tileFlags |= TiledTileLayer.FL_FLIPX;
         }
-        
+        if (template.getTileYFlip()) {
+            data.tileFlags |= TiledTileLayer.FL_FLIPY;
+        }
+        if (template.getTileDFlip()) {
+            data.tileFlags |= TiledTileLayer.FL_FLIPD;
+        }
+        data.visible = template.getVisible();
+        data.shape = template.getShape();
+        data.points = template.getPoints();
+        data.text = template.getText();
+        updateObjectData(data, template.getProperties());
     }
     
     private void updateObjectData(XMLStreamReader reader, ObjectData data,
@@ -2476,7 +2702,7 @@ public abstract class TiledReader {
         if (name != null) {
             data.name = name;
         }
-        String type = attributeValues.get("name");
+        String type = attributeValues.get("type");
         if (type != null) {
             data.type = type;
         }
@@ -2502,6 +2728,7 @@ public abstract class TiledReader {
                         + ": <object> tag's gid attribute could not be parsed as an unsigned integer");
             }
             data.unresolvedGID = rawGID & ~FL_TILE_ALL;
+            data.tileFlags = 0;
             if ((rawGID & FL_TILE_FLIPX) != 0) {
                 data.tileFlags |= TiledTileLayer.FL_FLIPX;
             }
@@ -2631,9 +2858,9 @@ public abstract class TiledReader {
                             if (propertiesRead) {
                                 ignoreRedundantTag(reader);
                             } else {
-                                Map<String,Object> oldProperties = data.properties;
-                                data.properties = readProperties(path, reader, propertyObjectsToResolve);
-                                data.properties.putAll(oldProperties);
+                                updateObjectData(data,
+                                        readProperties(path, reader, propertyObjectsToResolve));
+                                propertiesRead = true;
                             }
                             break;
                         case "ellipse":
@@ -2678,20 +2905,28 @@ public abstract class TiledReader {
         float x = parseFloat(reader, "x", attributeValues.get("x"));
         float y = parseFloat(reader, "y", attributeValues.get("y"));
         
+        ObjectData data = new ObjectData();
+        
         String templatePath = parseFile(path, reader,
                 "template", attributeValues.get("template"), true, null);
         TiledObjectTemplate template;
-        ObjectData data;
         if (templatePath == null) {
             template = null;
-            data = new ObjectData();
         } else {
             template = getTemplate(templatePath);
             ensureReference(path, templatePath);
-            data = new ObjectData(template);
+            updateObjectData(data, template);
         }
         
         updateObjectData(reader, data, attributeValues);
+        
+        if (objectTypes != null) {
+            TiledObjectType type = objectTypes.get(data.type);
+            if (type != null) {
+                updateObjectData(data, type.getProperties());
+            }
+        }
+        
         readObjectData(path, reader, data, propertyObjectsToResolve);
         
         if (tileObjectsToResolve == null) {
