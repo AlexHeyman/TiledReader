@@ -136,7 +136,7 @@ public abstract class TiledReader {
     static {
         OBJECTTYPE_PROPERTY_ATTRIBUTES.put("name", true);
         OBJECTTYPE_PROPERTY_ATTRIBUTES.put("type", true);
-        OBJECTTYPE_PROPERTY_ATTRIBUTES.put("default", true);
+        OBJECTTYPE_PROPERTY_ATTRIBUTES.put("default", false);
     }
     
     private static final Map<String,Boolean> MAP_ATTRIBUTES = new HashMap<>();
