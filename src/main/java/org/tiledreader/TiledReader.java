@@ -3175,6 +3175,7 @@ public abstract class TiledReader {
                                 + " represents an object property in a context where object properties are"
                                 + " invalid");
                     }
+                    properties.put(name, null); //Placeholder so the properties map doesn't change its key set
                     propertyObjectsToResolve.put(new PropertyData(properties, name),
                             parseInt(reader, "value", valueStr, true, 0));
                     break;

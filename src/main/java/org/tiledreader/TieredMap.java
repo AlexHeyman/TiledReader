@@ -13,9 +13,9 @@ import java.util.Set;
  * <p>A TieredMap is a type of unmodifiable Map defined by an ordered list of
  * other Maps, called tiers. For any given key, the key's corresponding value in
  * the TieredMap is the key's value in the lowest-indexed tier that contains it
- * as a key. If no tier contains a key, the key is not in the TieredMap. If a
- * TieredMap's tiers are modified after the TieredMap is created, its behavior
- * is undefined.</p>
+ * as a key. If no tier contains a key, the key is not in the TieredMap. If any
+ * of a TieredMap's tiers are modified after the TieredMap is constructed, the
+ * TieredMap's behavior is undefined.</p>
  * @param <K> The type of keys maintained by this TieredMap
  * @param <V> The type of mapped values
  * @author Alex Heyman
@@ -137,12 +137,12 @@ public class TieredMap<K,V> implements Map<K,V> {
         
         @Override
         public final int size() {
-            return size;
+            return TieredMap.this.size();
         }
         
         @Override
         public final boolean isEmpty() {
-            return size == 0;
+            return TieredMap.this.isEmpty();
         }
         
         @Override
@@ -264,12 +264,12 @@ public class TieredMap<K,V> implements Map<K,V> {
         
         @Override
         public final int size() {
-            return size;
+            return TieredMap.this.size();
         }
         
         @Override
         public final boolean isEmpty() {
-            return size == 0;
+            return TieredMap.this.isEmpty();
         }
         
         @Override
@@ -391,12 +391,12 @@ public class TieredMap<K,V> implements Map<K,V> {
         
         @Override
         public final int size() {
-            return size;
+            return TieredMap.this.size();
         }
         
         @Override
         public final boolean isEmpty() {
-            return size == 0;
+            return TieredMap.this.isEmpty();
         }
         
         @Override
