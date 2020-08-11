@@ -40,11 +40,11 @@ import javax.xml.stream.XMLStreamReader;
  * 
  * <p>A TiledReader stores a pointer to a set of object types, represented as an
  * instance of the TiledObjectTypes class. It uses this information to determine
- * the default values of the custom properties of any Tiled objects it reads,
- * as an implementation of Tiled's "Object Types Editor" feature. A
- * TiledReader's set of object types can be replaced manually, and a TiledReader
- * can read new sets of object types from the XML files in which Tiled stores
- * them. Tiled's default, global object types file is called
+ * the default values of the custom properties of any Tiled objects and tileset
+ * tiles that it reads, as an implementation of Tiled's "Object Types Editor"
+ * feature. A TiledReader's set of object types can be replaced manually, and a
+ * TiledReader can read new sets of object types from the XML files in which
+ * Tiled stores them. Tiled's default, global object types file is called
  * <code>objecttypes.xml</code>, and its location may depend on your operating
  * system.</p>
  * 
@@ -1835,6 +1835,7 @@ public abstract class TiledReader {
         TiledTile tile = getTile(idTiles, id);
         
         tile.type = attributeValues.get("type");
+        tile.typeInfo = (objectTypes == null ? null : objectTypes.get(tile.type));
         
         String terrain = attributeValues.get("terrain");
         Integer[] terrainTypes = new Integer[4];
@@ -1879,15 +1880,16 @@ public abstract class TiledReader {
         List<TiledObject> collisionObjects = null;
         List<TiledTile> frames = null;
         List<Integer> frameDurations = null;
-        Map<String,Object> properties = null;
+        Map<String,Object> nonDefaultProperties = null;
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "properties":
-                            if (properties == null) {
-                                properties = readProperties(path, reader, null, propertyObjectsToResolve);
+                            if (nonDefaultProperties == null) {
+                                nonDefaultProperties = readProperties(
+                                        path, reader, null, propertyObjectsToResolve);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1932,7 +1934,7 @@ public abstract class TiledReader {
                     break;
             }
         }
-        tile.setInnerTagInfo(image, collisionObjects, frames, frameDurations, properties);
+        tile.setInnerTagInfo(image, collisionObjects, frames, frameDurations, nonDefaultProperties);
     }
     
     private List<AnimationFrame> readAnimation(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
@@ -2650,7 +2652,7 @@ public abstract class TiledReader {
         private TiledObject.Shape shape = TiledObject.Shape.RECTANGLE;
         private List<Point2D> points = null;
         private TiledText text = null;
-        private Map<String,Object> properties = null;
+        private Map<String,Object> nonDefaultProperties = null;
         
     }
     
@@ -2675,10 +2677,6 @@ public abstract class TiledReader {
         data.shape = template.getShape();
         data.points = template.getPoints();
         data.text = template.getText();
-        if (data.properties == null) {
-            data.properties = new HashMap<>();
-        }
-        data.properties.putAll(template.getProperties());
     }
     
     private void updateObjectData(XMLStreamReader reader, GlobalTileData tileData, ObjectData data,
@@ -2721,7 +2719,7 @@ public abstract class TiledReader {
                 }
             }
             String tileType = data.tile.getType();
-            if (!tileType.isEmpty()) {
+            if (tileType != null) {
                 data.type = tileType;
             }
             data.tileFlags = 0;
@@ -2846,7 +2844,6 @@ public abstract class TiledReader {
     
     private void readObjectData(String path, XMLStreamReader reader, ObjectData data,
             Map<PropertyData,Integer> propertyObjectsToResolve) throws XMLStreamException {
-        boolean propertiesRead = false;
         boolean shapeRead = false;
         OUTER: while (true) {
             next(reader);
@@ -2854,12 +2851,11 @@ public abstract class TiledReader {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "properties":
-                            if (propertiesRead) {
-                                ignoreRedundantTag(reader);
+                            if (data.nonDefaultProperties == null) {
+                                data.nonDefaultProperties = readProperties(
+                                        path, reader, null, propertyObjectsToResolve);
                             } else {
-                                data.properties = readProperties(
-                                        path, reader, data.properties, propertyObjectsToResolve);
-                                propertiesRead = true;
+                                ignoreRedundantTag(reader);
                             }
                             break;
                         case "ellipse":
@@ -2919,21 +2915,13 @@ public abstract class TiledReader {
         
         updateObjectData(reader, tileData, data, attributeValues);
         
-        if (objectTypes != null) {
-            TiledObjectType type = objectTypes.get(data.type);
-            if (type != null) {
-                if (data.properties == null) {
-                    data.properties = new HashMap<>();
-                }
-                data.properties.putAll(type.getProperties());
-            }
-        }
+        TiledObjectType typeInfo = (objectTypes == null ? null : objectTypes.get(data.type));
         
         readObjectData(path, reader, data, propertyObjectsToResolve);
         
-        TiledObject object = new TiledObject(data.name, data.type, x, y, data.width, data.height,
+        TiledObject object = new TiledObject(data.name, data.type, typeInfo, x, y, data.width, data.height,
                 data.rotation, data.tile, data.tileFlags, data.visible, data.shape, data.points, data.text,
-                data.properties, template);
+                data.nonDefaultProperties, template);
         objects.add(object);
         allObjectsByID.put(id, object);
     }
@@ -3242,7 +3230,7 @@ public abstract class TiledReader {
         
         return new TiledObjectTemplate(this, path,
                 data.name, data.type, data.width, data.height, data.rotation, data.tile, data.tileFlags,
-                data.visible, data.shape, data.points, data.text, data.properties);
+                data.visible, data.shape, data.points, data.text, data.nonDefaultProperties);
     }
     
 }

@@ -1,5 +1,6 @@
 package org.tiledreader;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +19,13 @@ public class TiledTile implements TiledCustomizable {
     int tilesetY = -1;
     private TiledImage image = null;
     String type = null;
+    TiledObjectType typeInfo = null;
     final TiledTerrainType[] terrainTypes = new TiledTerrainType[4];
     float probability = -1;
     private List<TiledObject> collisionObjects = Collections.emptyList();
     private List<TiledTile> frames = Collections.emptyList();
     private List<Integer> frameDurations = Collections.emptyList();
+    private Map<String,Object> nonDefaultProperties = Collections.emptyMap();
     private Map<String,Object> properties = Collections.emptyMap();
     
     TiledTile(int id) {
@@ -30,7 +33,7 @@ public class TiledTile implements TiledCustomizable {
     }
     
     final void setInnerTagInfo(TiledImage image, List<TiledObject> collisionObjects,
-            List<TiledTile> frames, List<Integer> frameDurations, Map<String,Object> properties) {
+            List<TiledTile> frames, List<Integer> frameDurations, Map<String,Object> nonDefaultProperties) {
         this.image = image;
         if (collisionObjects != null) {
             this.collisionObjects = Collections.unmodifiableList(collisionObjects);
@@ -39,9 +42,18 @@ public class TiledTile implements TiledCustomizable {
             this.frames = Collections.unmodifiableList(frames);
             this.frameDurations = Collections.unmodifiableList(frameDurations);
         }
-        if (properties != null) {
-            this.properties = Collections.unmodifiableMap(properties);
+        if (nonDefaultProperties != null) {
+            this.nonDefaultProperties = Collections.unmodifiableMap(nonDefaultProperties);
         }
+        
+        List<Map<String,Object>> propertyTiers = new ArrayList<>();
+        if (!this.nonDefaultProperties.isEmpty()) {
+            propertyTiers.add(nonDefaultProperties);
+        }
+        if (typeInfo != null && !typeInfo.getProperties().isEmpty()) {
+            propertyTiers.add(typeInfo.getProperties());
+        }
+        properties = new TieredMap<>(propertyTiers);
     }
     
     /**
@@ -93,6 +105,16 @@ public class TiledTile implements TiledCustomizable {
      */
     public final String getType() {
         return type;
+    }
+    
+    /**
+     * Returns the object type information that determined the default values of
+     * this tile's custom properties, or null if no such information was used.
+     * @return The object type information that determined the default values of
+     * this tile's custom properties
+     */
+    public final TiledObjectType getTypeInfo() {
+        return typeInfo;
     }
     
     /**
@@ -207,6 +229,16 @@ public class TiledTile implements TiledCustomizable {
     @Override
     public final Object getProperty(String name) {
         return properties.get(name);
+    }
+    
+    /**
+     * Returns an unmodifiable Map view of this tile's custom properties that
+     * were specified by the tile itself, rather than as defaults via its object
+     * type.
+     * @return This tile's non-default custom properties
+     */
+    public final Map<String,Object> getNonDefaultProperties() {
+        return nonDefaultProperties;
     }
     
 }

@@ -1,6 +1,7 @@
 package org.tiledreader;
 
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ public class TiledObject implements TiledCustomizable {
     }
     
     private final String name, type;
+    private final TiledObjectType typeInfo;
     private final float x, y, width, height, rotation;
     TiledTile tile;
     private final int tileFlags;
@@ -29,14 +31,16 @@ public class TiledObject implements TiledCustomizable {
     private final TiledObject.Shape shape;
     private final List<Point2D> points;
     private final TiledText text;
-    private final Map<String,Object> properties;
+    private final Map<String,Object> nonDefaultProperties, properties;
     private final TiledObjectTemplate template;
     
-    TiledObject(String name, String type, float x, float y, float width, float height, float rotation,
-            TiledTile tile, int tileFlags, boolean visible, TiledObject.Shape shape, List<Point2D> points,
-            TiledText text, Map<String,Object> properties, TiledObjectTemplate template) {
-        this.name = (name == null ? "" : name);
-        this.type = (type == null ? "" : type);
+    TiledObject(String name, String type, TiledObjectType typeInfo, float x, float y,
+            float width, float height, float rotation, TiledTile tile, int tileFlags, boolean visible,
+            TiledObject.Shape shape, List<Point2D> points, TiledText text,
+            Map<String,Object> nonDefaultProperties, TiledObjectTemplate template) {
+        this.name = name;
+        this.type = type;
+        this.typeInfo = typeInfo;
         this.x = x;
         this.y = y;
         this.width = width;
@@ -48,8 +52,24 @@ public class TiledObject implements TiledCustomizable {
         this.shape = shape;
         this.points = (points == null ? Collections.emptyList() : Collections.unmodifiableList(points));
         this.text = text;
-        this.properties = (properties == null ?
-                Collections.emptyMap() : Collections.unmodifiableMap(properties));
+        this.nonDefaultProperties = (nonDefaultProperties == null ?
+                Collections.emptyMap() : Collections.unmodifiableMap(nonDefaultProperties));
+        
+        List<Map<String,Object>> propertyTiers = new ArrayList<>();
+        if (!this.nonDefaultProperties.isEmpty()) {
+            propertyTiers.add(this.nonDefaultProperties);
+        }
+        if (template != null && !template.getProperties().isEmpty()) {
+            propertyTiers.add(template.getProperties());
+        }
+        if (tile != null && !tile.getNonDefaultProperties().isEmpty()) {
+            propertyTiers.add(tile.getNonDefaultProperties());
+        }
+        if (typeInfo != null && !typeInfo.getProperties().isEmpty()) {
+            propertyTiers.add(typeInfo.getProperties());
+        }
+        properties = new TieredMap<>(propertyTiers);
+        
         this.template = template;
     }
     
@@ -67,6 +87,16 @@ public class TiledObject implements TiledCustomizable {
      */
     public final String getType() {
         return type;
+    }
+    
+    /**
+     * Returns the object type information that determined the default values of
+     * this object's custom properties, or null if no such information was used.
+     * @return The object type information that determined the default values of
+     * this object's custom properties
+     */
+    public final TiledObjectType getTypeInfo() {
+        return typeInfo;
     }
     
     /**
@@ -190,6 +220,16 @@ public class TiledObject implements TiledCustomizable {
     @Override
     public final Object getProperty(String name) {
         return properties.get(name);
+    }
+    
+    /**
+     * Returns an unmodifiable Map view of this object's custom properties that
+     * were specified by the object itself, rather than as defaults via its
+     * template, tile, or object type.
+     * @return This object's non-default custom properties
+     */
+    public final Map<String,Object> getNonDefaultProperties() {
+        return nonDefaultProperties;
     }
     
     /**
