@@ -234,7 +234,8 @@ public class TiledTile implements TiledCustomizable {
     /**
      * Returns an unmodifiable Map view of this tile's custom properties that
      * were specified by the tile itself, rather than as defaults via its object
-     * type.
+     * type. The format of the returned Map is the same as the format of the Map
+     * returned by getProperties().
      * @return This tile's non-default custom properties
      */
     public final Map<String,Object> getNonDefaultProperties() {
