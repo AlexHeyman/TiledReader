@@ -8,10 +8,50 @@
     <artifactId>TiledReader</artifactId>
     <version>1.1.0</version>
 
+    <name>TiledReader</name>
+    <description>TiledReader is a simple Java library for reading information from files created with the map editor Tiled.</description>
+    <url>http://www.alexheyman.org/tiledreader/</url>
+
+    <licenses>
+        <license>
+            <name>BSD 3-Clause License</name>
+            <url>http://www.alexheyman.org/tiledreader/license.html</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Alex Heyman</name>
+            <email>abheyman23@sbcglobal.net</email>
+            <url>http://www.alexheyman.org/</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>git@github.com:AlexHeyman/TiledReader.git</connection>
+        <developerConnection>git@github.com:AlexHeyman/TiledReader.git</developerConnection>
+        <url>https://github.com/AlexHeyman/TiledReader/tree/master</url>
+    </scm>
+
     <build>
         <finalName>${project.artifactId}</finalName>
+
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.2.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.2.0</version>
+                    <configuration>
+                        <javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
+                        <source>8</source>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
@@ -23,5 +63,32 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>
