@@ -32,7 +32,28 @@
         <developerConnection>git@github.com:AlexHeyman/TiledReader.git</developerConnection>
         <url>https://github.com/AlexHeyman/TiledReader/tree/master</url>
     </scm>
-
+    
+    <profiles>
+        <profile>
+            <id>jdk-8-config</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+                <javadocExecutable>${java.home}/../bin/javadoc</javadocExecutable>
+            </properties>
+        </profile>
+        <profile>
+            <id>jdk-new-config</id>
+            <activation>
+                <jdk>[1.9,)</jdk>
+            </activation>
+            <properties>
+                <javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
+            </properties>
+        </profile>
+    </profiles>
+    
     <build>
         <finalName>${project.artifactId}</finalName>
 
