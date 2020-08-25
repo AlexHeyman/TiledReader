@@ -21,9 +21,8 @@ public class TiledResource {
     }
     
     /**
-     * Returns the TiledReader that read this resource as a Tiled file's
-     * top-level structure, or null if this resource was read as a
-     * lower-level structure.
+     * Returns the TiledReader that read this resource, whether or not it was
+     * read from a Tiled file's top-level structure.
      * @return The TiledReader that read this resource
      */
     public final TiledReader getReader() {

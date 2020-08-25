@@ -1628,16 +1628,7 @@ public abstract class TiledReader {
             }
         }
         
-        TiledReader resourceReader;
-        String resourcePath;
-        if (pathIsTSX) {
-            resourceReader = this;
-            resourcePath = path;
-        } else {
-            resourceReader = null;
-            resourcePath = null;
-        }
-        TiledTileset tileset = new TiledTileset(resourceReader, resourcePath, name, tileWidth,
+        TiledTileset tileset = new TiledTileset(this, (pathIsTSX ? path : null), name, tileWidth,
                 tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
                 gridOrientation, gridWidth, gridHeight, image, terrainTypes, wangSets, properties);
         for (TiledTile tile : idTiles.values()) {
