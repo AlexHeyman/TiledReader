@@ -391,12 +391,9 @@ public abstract class TiledReader {
     private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
     
     /**
-     * The logger for the TiledReader library. By default, its Level is INFO.
+     * The logger for the TiledReader library.
      */
     public static final Logger LOGGER = Logger.getLogger("org.tiledreader");
-    static {
-        LOGGER.setLevel(Level.INFO);
-    }
     
     private TiledObjectTypes objectTypes = null;
     
