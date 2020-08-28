@@ -388,12 +388,15 @@ public abstract class TiledReader {
     private static final int FL_TILE_FLIPD = 0x20000000;
     private static final int FL_TILE_ALL = FL_TILE_FLIPX | FL_TILE_FLIPY | FL_TILE_FLIPD;
     
-    private static final Logger LOGGER = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
+    
+    /**
+     * The logger for the TiledReader library. By default, its Level is INFO.
+     */
+    public static final Logger LOGGER = Logger.getLogger("org.tiledreader");
     static {
         LOGGER.setLevel(Level.INFO);
     }
-    
-    private static final Base64.Decoder BASE_64_DECODER = Base64.getDecoder();
     
     private TiledObjectTypes objectTypes = null;
     
