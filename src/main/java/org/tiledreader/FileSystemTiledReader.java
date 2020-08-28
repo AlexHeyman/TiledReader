@@ -21,6 +21,11 @@ public class FileSystemTiledReader extends TiledReader {
     
     private final Map<String,TiledResource> resources = new HashMap<>();
     
+    /**
+     * Constructs a new FileSystemTiledReader.
+     */
+    public FileSystemTiledReader() {}
+    
     @Override
     public final String getCanonicalPath(String path) {
         try {
