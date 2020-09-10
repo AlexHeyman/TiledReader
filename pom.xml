@@ -4,7 +4,7 @@
 
     <groupId>org.tiledreader</groupId>
     <artifactId>TiledReader</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.0-SNAPSHOT</version>
 
     <name>TiledReader</name>
     <description>TiledReader is a simple Java library for reading information from files created with the map editor Tiled.</description>
@@ -26,7 +26,7 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/AlexHeyman/TiledReader.git</connection><developerConnection>scm:git:ssh://github.com/AlexHeyman/TiledReader.git</developerConnection>
+        <connection>scm:git:git@github.com:AlexHeyman/TiledReader.git</connection><developerConnection>scm:git:git@github.com:AlexHeyman/TiledReader.git</developerConnection>
         <url>https://github.com/AlexHeyman/TiledReader/tree/master</url>
         <tag>TiledReader-1.1.0</tag>
   </scm>
