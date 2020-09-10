@@ -26,7 +26,7 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com:AlexHeyman/TiledReader.git</connection><developerConnection>scm:git:ssh://github.com:AlexHeyman/TiledReader.git</developerConnection>
+        <connection>scm:git:git://github.com/AlexHeyman/TiledReader.git</connection><developerConnection>scm:git:ssh://github.com/AlexHeyman/TiledReader.git</developerConnection>
         <url>https://github.com/AlexHeyman/TiledReader/tree/master</url>
       <tag>TiledReader-1.1.0</tag>
   </scm>
