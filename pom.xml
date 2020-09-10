@@ -4,7 +4,7 @@
 
     <groupId>org.tiledreader</groupId>
     <artifactId>TiledReader</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 
     <name>TiledReader</name>
     <description>TiledReader is a simple Java library for reading information from files created with the map editor Tiled.</description>
