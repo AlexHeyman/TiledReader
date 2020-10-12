@@ -66,7 +66,7 @@ import javax.xml.stream.XMLStreamReader;
  * other ways in custom subclasses.</p>
  * 
  * <p>The TiledReader library does not support image data embedded directly in
- * TMX/TSX files. As of Tiled version 1.4.1, however, it is not possible to
+ * TMX/TSX files. As of Tiled version 1.4.2, however, it is not possible to
  * embed image data in files using the Tiled editor.</p>
  * 
  * <p>The TiledReader library also ignores information in Tiled files pertaining
@@ -83,9 +83,9 @@ import javax.xml.stream.XMLStreamReader;
 public abstract class TiledReader {
     
     /**
-     * The version number of TiledReader. Currently 1.1.0.
+     * The version number of TiledReader. Currently 1.1.1.
      */
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.1.1";
     
     /**
      * The version number of Tiled that this version of TiledReader was designed

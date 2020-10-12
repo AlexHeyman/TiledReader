@@ -137,7 +137,7 @@ public class TiledText {
     
     /**
      * Returns this text's horizontal alignment within its text object
-     * (<code>TiledText.HAlign.LEFT</code>) by default.
+     * (<code>TiledText.HAlign.LEFT</code> by default).
      * @return This text's horizontal alignment within its text object
      */
     public final HAlign getHAlign() {
@@ -146,7 +146,7 @@ public class TiledText {
     
     /**
      * Returns this text's vertical alignment within its text object
-     * (<code>TiledText.VAlign.TOP</code>) by default.
+     * (<code>TiledText.VAlign.TOP</code> by default).
      * @return This text's vertical alignment within its text object
      */
     public final VAlign getVAlign() {
