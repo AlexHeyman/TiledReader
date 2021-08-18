@@ -2910,7 +2910,7 @@ public abstract class TiledReader {
         
         readObjectData(path, reader, data, propertyObjectsToResolve);
         
-        TiledObject object = new TiledObject(data.name, data.type, typeInfo, x, y, data.width, data.height,
+        TiledObject object = new TiledObject(id, data.name, data.type, typeInfo, x, y, data.width, data.height,
                 data.rotation, data.tile, data.tileFlags, data.visible, data.shape, data.points, data.text,
                 data.nonDefaultProperties, template);
         objects.add(object);
