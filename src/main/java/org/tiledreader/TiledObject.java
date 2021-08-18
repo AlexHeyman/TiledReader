@@ -21,7 +21,8 @@ public class TiledObject implements TiledCustomizable {
     public static enum Shape {
         ELLIPSE, POINT, POLYGON, POLYLINE, RECTANGLE, TEXT
     }
-    
+
+    private final int id;
     private final String name, type;
     private final TiledObjectType typeInfo;
     private final float x, y, width, height, rotation;
@@ -34,10 +35,11 @@ public class TiledObject implements TiledCustomizable {
     private final Map<String,Object> nonDefaultProperties, properties;
     private final TiledObjectTemplate template;
     
-    TiledObject(String name, String type, TiledObjectType typeInfo, float x, float y,
+    TiledObject(int id, String name, String type, TiledObjectType typeInfo, float x, float y,
             float width, float height, float rotation, TiledTile tile, int tileFlags, boolean visible,
             TiledObject.Shape shape, List<Point2D> points, TiledText text,
             Map<String,Object> nonDefaultProperties, TiledObjectTemplate template) {
+        this.id = id;
         this.name = name;
         this.type = type;
         this.typeInfo = typeInfo;
@@ -72,7 +74,16 @@ public class TiledObject implements TiledCustomizable {
         
         this.template = template;
     }
-    
+
+    /**
+     * Returns this object's id.
+     * @return This object's id
+     */
+    public int getId()
+    {
+        return id;
+    }
+
     /**
      * Returns this object's name (the empty string by default).
      * @return This object's name
