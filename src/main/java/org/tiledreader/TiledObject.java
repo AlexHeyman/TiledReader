@@ -21,7 +21,7 @@ public class TiledObject implements TiledCustomizable {
     public static enum Shape {
         ELLIPSE, POINT, POLYGON, POLYLINE, RECTANGLE, TEXT
     }
-
+    
     private final int id;
     private final String name, type;
     private final TiledObjectType typeInfo;
@@ -74,16 +74,15 @@ public class TiledObject implements TiledCustomizable {
         
         this.template = template;
     }
-
+    
     /**
-     * Returns this object's id.
-     * @return This object's id
+     * Returns this object's ID.
+     * @return This object's ID
      */
-    public int getId()
-    {
+    public int getID() {
         return id;
     }
-
+    
     /**
      * Returns this object's name (the empty string by default).
      * @return This object's name
