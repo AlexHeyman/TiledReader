@@ -79,7 +79,7 @@ public class TiledObject implements TiledCustomizable {
      * Returns this object's ID.
      * @return This object's ID
      */
-    public int getID() {
+    public final int getID() {
         return id;
     }
     
