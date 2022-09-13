@@ -25,9 +25,10 @@ public class HashTileLayer extends TiledTileLayer {
     private final Map<Point,Integer> flags;
     
     HashTileLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            Color relTintColor, float relOffsetX, float relOffsetY, int x1, int y1, int x2, int y2,
-            Map<Point,TiledTile> tiles, Map<Point,Integer> flags) {
-        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY, float relParallaxX, float realParallaxY,
+            int x1, int y1, int x2, int y2, Map<Point,TiledTile> tiles, Map<Point,Integer> flags) {
+        super(name, parent, relOpacity, relVisible, relTintColor,
+                relOffsetX, relOffsetY, relParallaxX, realParallaxY);
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;

@@ -20,7 +20,6 @@ public class TiledTile implements TiledCustomizable {
     private TiledImage image = null;
     String type = null;
     TiledObjectType typeInfo = null;
-    final TiledTerrainType[] terrainTypes = new TiledTerrainType[4];
     float probability = -1;
     private List<TiledObject> collisionObjects = Collections.emptyList();
     private List<TiledTile> frames = Collections.emptyList();
@@ -115,42 +114,6 @@ public class TiledTile implements TiledCustomizable {
      */
     public final TiledObjectType getTypeInfo() {
         return typeInfo;
-    }
-    
-    /**
-     * Returns the terrain type of this tile's top left corner, or null if the
-     * corner has no terrain type.
-     * @return The terrain type of this tile's top left corner
-     */
-    public final TiledTerrainType getTopLeftTerrainType() {
-        return terrainTypes[0];
-    }
-    
-    /**
-     * Returns the terrain type of this tile's top right corner, or null if the
-     * corner has no terrain type.
-     * @return The terrain type of this tile's top right corner
-     */
-    public final TiledTerrainType getTopRightTerrainType() {
-        return terrainTypes[1];
-    }
-    
-    /**
-     * Returns the terrain type of this tile's bottom left corner, or null if
-     * the corner has no terrain type.
-     * @return The terrain type of this tile's bottom left corner
-     */
-    public final TiledTerrainType getBottomLeftTerrainType() {
-        return terrainTypes[2];
-    }
-    
-    /**
-     * Returns the terrain type of this tile's bottom right corner, or null if
-     * the corner has no terrain type.
-     * @return The terrain type of this tile's bottom right corner
-     */
-    public final TiledTerrainType getBottomRightTerrainType() {
-        return terrainTypes[3];
     }
     
     /**

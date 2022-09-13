@@ -16,8 +16,10 @@ public class TiledObjectLayer extends TiledLayer {
     private final List<TiledObject> objects;
     
     TiledObjectLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            Color relTintColor, float relOffsetX, float relOffsetY, Color color, List<TiledObject> objects) {
-        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY, float relParallaxX, float relParallaxY,
+            Color color, List<TiledObject> objects) {
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY,
+                relParallaxX, relParallaxY);
         this.color = color;
         this.objects = Collections.unmodifiableList(objects);
     }

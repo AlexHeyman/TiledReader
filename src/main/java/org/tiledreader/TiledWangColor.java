@@ -1,6 +1,8 @@
 package org.tiledreader;
 
 import java.awt.Color;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * <p>A TiledWangColor represents a color that can be used to define the corner
@@ -8,18 +10,22 @@ import java.awt.Color;
  * &lt;wangedgecolor&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledWangColor {
+public class TiledWangColor implements TiledCustomizable {
     
     private final String name;
     private final Color color;
     private final TiledTile tile;
     private final float probability;
+    private final Map<String,Object> properties;
     
-    TiledWangColor(String name, Color color, TiledTile tile, float probability) {
+    TiledWangColor(String name, Color color, TiledTile tile, float probability,
+            Map<String,Object> properties) {
         this.name = name;
         this.color = color;
         this.tile = tile;
         this.probability = probability;
+        this.properties = (properties == null ?
+                Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
     
     /**
@@ -55,6 +61,16 @@ public class TiledWangColor {
      */
     public final float getProbability() {
         return probability;
+    }
+    
+    @Override
+    public final Map<String,Object> getProperties() {
+        return properties;
+    }
+    
+    @Override
+    public final Object getProperty(String name) {
+        return properties.get(name);
     }
     
 }

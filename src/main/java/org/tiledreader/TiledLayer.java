@@ -8,12 +8,12 @@ import java.util.Map;
  * <p>A TiledLayer represents a tile layer, object layer, image layer, or group
  * layer, depending on which subclass of TiledLayer it is. The TiledLayer class
  * is responsible for the attributes that all layer types have in common. Since
- * a group layer's opacity, visibility, tint color, and rendering x and y
- * offsets recursively affect its child layers, a TiledLayer object's methods
- * specify those four attributes as relative (to the layer's group layer, if it
- * has one) or as absolute. If the layer is not contained in a group layer, its
- * relative opacity, visibility, etc. are equal to its absolute opacity,
- * visibility, etc.</p>
+ * a group layer's opacity, visibility, tint color, rendering offsets, and
+ * parallax scrolling factors recursively affect its child layers, a TiledLayer
+ * object's methods specify those attributes as relative (to the layer's group
+ * layer, if it has one) or as absolute. If the layer is not contained in a
+ * group layer, its relative opacity, visibility, etc. are equal to its absolute
+ * opacity, visibility, etc.</p>
  * @author Alex Heyman
  */
 public abstract class TiledLayer implements TiledCustomizable {
@@ -23,11 +23,12 @@ public abstract class TiledLayer implements TiledCustomizable {
     private final float relOpacity, absOpacity;
     private final boolean relVisible, absVisible;
     private final Color relTintColor, absTintColor;
-    private final float relOffsetX, absOffsetX, relOffsetY, absOffsetY;
+    private final float relOffsetX, absOffsetX, relOffsetY, absOffsetY,
+            relParallaxX, absParallaxX, relParallaxY, absParallaxY;
     private Map<String,Object> properties = Collections.emptyMap();
     
     TiledLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            Color relTintColor, float relOffsetX, float relOffsetY) {
+            Color relTintColor, float relOffsetX, float relOffsetY, float relParallaxX, float relParallaxY) {
         this.name = name;
         this.parent = parent;
         this.relOpacity = relOpacity;
@@ -35,12 +36,16 @@ public abstract class TiledLayer implements TiledCustomizable {
         this.relTintColor = relTintColor;
         this.relOffsetX = relOffsetX;
         this.relOffsetY = relOffsetY;
+        this.relParallaxX = relParallaxX;
+        this.relParallaxY = relParallaxY;
         if (parent == null) {
             absOpacity = relOpacity;
             absVisible = relVisible;
             absTintColor = relTintColor;
             absOffsetX = relOffsetX;
             absOffsetY = relOffsetY;
+            absParallaxX = relParallaxX;
+            absParallaxY = relParallaxY;
         } else {
             absOpacity = parent.getAbsOpacity() * relOpacity;
             absVisible = (parent.getAbsVisible() && relVisible);
@@ -52,6 +57,8 @@ public abstract class TiledLayer implements TiledCustomizable {
             absTintColor = new Color(blendedR, blendedG, blendedB, blendedA);
             absOffsetX = parent.getAbsOffsetX() + relOffsetX;
             absOffsetY = parent.getAbsOffsetY() + relOffsetY;
+            absParallaxX = parent.getAbsParallaxX() * relParallaxX;
+            absParallaxY = parent.getAbsParallaxY() * relParallaxY;
         }
     }
     
@@ -161,6 +168,40 @@ public abstract class TiledLayer implements TiledCustomizable {
      */
     public final float getAbsOffsetY() {
         return absOffsetY;
+    }
+    
+    /**
+     * Returns this layer's horizontal parallax scrolling factor, relative to
+     * its group layer if it has one.
+     * @return This layer's relative horizontal parallax scrolling factor
+     */
+    public final float getRelParallaxX() {
+        return relParallaxX;
+    }
+    
+    /**
+     * Returns this layer's absolute horizontal parallax scrolling factor.
+     * @return This layer's absolute horizontal parallax scrolling factor
+     */
+    public final float getAbsParallaxX() {
+        return absParallaxX;
+    }
+    
+    /**
+     * Returns this layer's vertical parallax scrolling factor, relative to its
+     * group layer if it has one.
+     * @return This layer's relative vertical parallax scrolling factor
+     */
+    public final float getRelParallaxY() {
+        return relParallaxY;
+    }
+    
+    /**
+     * Returns this layer's absolute vertical parallax scrolling factor.
+     * @return This layer's absolute vertical parallax scrolling factor
+     */
+    public final float getAbsParallaxY() {
+        return absParallaxY;
     }
     
     @Override

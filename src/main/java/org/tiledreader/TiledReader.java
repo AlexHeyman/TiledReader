@@ -66,7 +66,7 @@ import javax.xml.stream.XMLStreamReader;
  * other ways in custom subclasses.</p>
  * 
  * <p>The TiledReader library does not support image data embedded directly in
- * TMX/TSX files. As of Tiled version 1.4.2, however, it is not possible to
+ * TMX/TSX files. As of Tiled version 1.9.1, however, it is not possible to
  * embed image data in files using the Tiled editor.</p>
  * 
  * <p>The TiledReader library also ignores information in Tiled files pertaining
@@ -83,23 +83,23 @@ import javax.xml.stream.XMLStreamReader;
 public abstract class TiledReader {
     
     /**
-     * The version number of TiledReader. Currently 1.1.1.
+     * The version number of TiledReader. Currently 1.2.0.
      */
-    public static final String VERSION = "1.1.1";
+    public static final String VERSION = "1.2.0";
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
-     * for. Currently 1.4.2.
+     * for. Currently 1.5.
      */
-    public static final String TILED_VERSION = "1.4.2";
+    public static final String TILED_VERSION = "1.5";
     
     /**
      * The version of the TMX file format that this version of TiledReader was
-     * designed for. Currently 1.4. This is what matters most for file
+     * designed for. Currently 1.5. This is what matters most for file
      * compatibility, and TiledReader will produce a warning if it reads a file
      * with a TMX format version that does not match this constant.
      */
-    public static final String TMX_VERSION = "1.4";
+    public static final String TMX_VERSION = "1.5";
     
     private static Map<Integer,String> EVENT_TYPE_NAMES = null;
     
@@ -215,10 +215,12 @@ public abstract class TiledReader {
         IMAGE_ATTRIBUTES.put("height", false);
     }
     
-    private static final Map<String,Boolean> TERRAIN_ATTRIBUTES = new HashMap<>();
+    private static final Map<String,Boolean> TRANSFORMATIONS_ATTRIBUTES = new HashMap<>();
     static {
-        TERRAIN_ATTRIBUTES.put("name", true);
-        TERRAIN_ATTRIBUTES.put("tile", true);
+        TRANSFORMATIONS_ATTRIBUTES.put("hflip", false);
+        TRANSFORMATIONS_ATTRIBUTES.put("vflip", false);
+        TRANSFORMATIONS_ATTRIBUTES.put("rotate", false);
+        TRANSFORMATIONS_ATTRIBUTES.put("preferuntransformed", false);
     }
     
     private static final Map<String,Boolean> TILESET_TILE_ATTRIBUTES = new HashMap<>();
@@ -241,12 +243,12 @@ public abstract class TiledReader {
         WANGSET_ATTRIBUTES.put("tile", true);
     }
     
-    private static final Map<String,Boolean> WANG_COLOR_ATTRIBUTES = new HashMap<>();
+    private static final Map<String,Boolean> WANGCOLOR_ATTRIBUTES = new HashMap<>();
     static {
-        WANG_COLOR_ATTRIBUTES.put("name", true);
-        WANG_COLOR_ATTRIBUTES.put("color", true);
-        WANG_COLOR_ATTRIBUTES.put("tile", true);
-        WANG_COLOR_ATTRIBUTES.put("probability", true);
+        WANGCOLOR_ATTRIBUTES.put("name", true);
+        WANGCOLOR_ATTRIBUTES.put("color", true);
+        WANGCOLOR_ATTRIBUTES.put("tile", true);
+        WANGCOLOR_ATTRIBUTES.put("probability", true);
     }
     
     private static final Map<String,Boolean> WANGTILE_ATTRIBUTES = new HashMap<>();
@@ -268,6 +270,8 @@ public abstract class TiledReader {
         LAYER_ATTRIBUTES.put("tintcolor", false);
         LAYER_ATTRIBUTES.put("offsetx", false);
         LAYER_ATTRIBUTES.put("offsety", false);
+        LAYER_ATTRIBUTES.put("parallaxx", false);
+        LAYER_ATTRIBUTES.put("parallaxy", false);
     }
     
     private static final Map<String,Boolean> DATA_ATTRIBUTES = new HashMap<>();
@@ -303,6 +307,8 @@ public abstract class TiledReader {
         MAP_OBJECTGROUP_ATTRIBUTES.put("tintcolor", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("offsetx", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("offsety", false);
+        MAP_OBJECTGROUP_ATTRIBUTES.put("parallaxx", false);
+        MAP_OBJECTGROUP_ATTRIBUTES.put("parallaxy", false);
         MAP_OBJECTGROUP_ATTRIBUTES.put("draworder", false);
     }
     
@@ -361,6 +367,8 @@ public abstract class TiledReader {
         IMAGELAYER_ATTRIBUTES.put("tintcolor", false);
         IMAGELAYER_ATTRIBUTES.put("offsetx", false);
         IMAGELAYER_ATTRIBUTES.put("offsety", false);
+        IMAGELAYER_ATTRIBUTES.put("parallaxx", false);
+        IMAGELAYER_ATTRIBUTES.put("parallaxy", false);
     }
     
     private static final Map<String,Boolean> GROUP_ATTRIBUTES = new HashMap<>();
@@ -372,6 +380,8 @@ public abstract class TiledReader {
         GROUP_ATTRIBUTES.put("tintcolor", false);
         GROUP_ATTRIBUTES.put("offsetx", false);
         GROUP_ATTRIBUTES.put("offsety", false);
+        GROUP_ATTRIBUTES.put("parallaxx", false);
+        GROUP_ATTRIBUTES.put("parallaxy", false);
     }
     
     private static final Map<String,Boolean> PROPERTY_ATTRIBUTES = new HashMap<>();
@@ -1481,11 +1491,11 @@ public abstract class TiledReader {
         
         Map<String,Object> properties = null;
         TiledImage image = null;
-        List<TiledTerrainType> terrainTypes = null;
         SortedMap<Integer,TiledTile> idTiles = new TreeMap<>();
         Set<Integer> readTileIDs = new HashSet<>();
         Map<Integer,Integer[]> tileTerrainTypes = new HashMap<>();
         List<TiledWangSet> wangSets = null;
+        boolean[] transformations = null;
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
@@ -1526,20 +1536,20 @@ public abstract class TiledReader {
                                 ignoreRedundantTag(reader);
                             }
                             break;
-                        case "terraintypes":
-                            if (terrainTypes == null) {
-                                terrainTypes = readTerrainTypes(reader, idTiles);
-                            } else {
-                                ignoreRedundantTag(reader);
-                            }
-                            break;
                         case "tile":
                             readTilesetTile(path, reader, idTiles, readTileIDs, tileTerrainTypes,
                                     propertyObjectsToResolve);
                             break;
                         case "wangsets":
                             if (wangSets == null) {
-                                wangSets = readWangSets(reader, idTiles);
+                                wangSets = readWangSets(path, reader, idTiles, propertyObjectsToResolve);
+                            } else {
+                                ignoreRedundantTag(reader);
+                            }
+                            break;
+                        case "transformations":
+                            if (transformations == null) {
+                                transformations = readTransformations(reader);
                             } else {
                                 ignoreRedundantTag(reader);
                             }
@@ -1606,31 +1616,9 @@ public abstract class TiledReader {
             }
         }
         
-        if (terrainTypes != null) {
-            for (Map.Entry<Integer,TiledTile> entry : idTiles.entrySet()) {
-                int id = entry.getKey();
-                if (!tileTerrainTypes.containsKey(id)) {
-                    continue; //If the tile's terrain types were never specified, it doesn't have any
-                }
-                TiledTile tile = entry.getValue();
-                for (int cornerIndex = 0; cornerIndex < 4; cornerIndex++) {
-                    Integer ttIndex = tileTerrainTypes.get(id)[cornerIndex];
-                    if (ttIndex == null) {
-                        continue; //No terrain type at this corner
-                    }
-                    if (ttIndex < 0 || ttIndex >= terrainTypes.size()) {
-                        throw new XMLStreamException(describeReaderLocation(reader) + ": <tile> tag with ID "
-                                + id + " has invalid terrain type index (" + ttIndex + ")");
-                    }
-                    TiledTerrainType terrainType = terrainTypes.get(ttIndex);
-                    tile.terrainTypes[cornerIndex] = terrainType;
-                }
-            }
-        }
-        
         TiledTileset tileset = new TiledTileset(this, (pathIsTSX ? path : null), name, tileWidth,
                 tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
-                gridOrientation, gridWidth, gridHeight, image, terrainTypes, wangSets, properties);
+                gridOrientation, gridWidth, gridHeight, image, wangSets, transformations, properties);
         for (TiledTile tile : idTiles.values()) {
             tile.tileset = tileset;
         }
@@ -1756,45 +1744,19 @@ public abstract class TiledReader {
         return source;
     }
     
-    private List<TiledTerrainType> readTerrainTypes(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
-            throws XMLStreamException {
-        getAttributeValues(reader, Collections.emptyMap());
-        List<TiledTerrainType> terrainTypes = new ArrayList<>();
-        OUTER: while (true) {
-            next(reader);
-            switch (reader.getEventType()) {
-                case XMLStreamConstants.START_ELEMENT:
-                    switch (reader.getLocalName()) {
-                        case "terrain":
-                            readTerrain(reader, idTiles, terrainTypes);
-                            break;
-                        default:
-                            ignoreUnexpectedTag(reader);
-                            break;
-                    }
-                    break;
-                case XMLStreamConstants.END_ELEMENT:
-                    checkEndTagMatch(reader, "terraintypes");
-                    break OUTER;
-                default:
-                    ignoreUnexpectedEvent(reader);
-                    break;
-            }
-        }
-        return terrainTypes;
-    }
-    
-    private void readTerrain(XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            List<TiledTerrainType> terrainTypes) throws XMLStreamException {
-        Map<String,String> attributeValues = getAttributeValues(reader, TERRAIN_ATTRIBUTES);
+    private boolean[] readTransformations(XMLStreamReader reader) throws XMLStreamException {
+        Map<String,String> attributeValues = getAttributeValues(reader, TRANSFORMATIONS_ATTRIBUTES);
         
-        String name = attributeValues.get("name");
-        
-        int tileID = parseInt(reader, "tile", attributeValues.get("tile"));
-        TiledTile tile = (tileID < 0 ? null : getTile(idTiles, tileID));
+        boolean[] tfs = new boolean[]{
+            parseBooleanFromInt(reader, "hflip", attributeValues.get("hflip"), true, false),
+            parseBooleanFromInt(reader, "vflip", attributeValues.get("vflip"), true, false),
+            parseBooleanFromInt(reader, "rotate", attributeValues.get("rotate"), true, false),
+            parseBooleanFromInt(reader, "preferuntransformed", attributeValues.get("preferuntransformed"),
+                    true, false)
+        };
         
         finishTag(reader);
-        terrainTypes.add(new TiledTerrainType(name, tile));
+        return tfs;
     }
     
     private static class AnimationFrame {
@@ -1973,7 +1935,8 @@ public abstract class TiledReader {
         return new AnimationFrame(getTile(idTiles, tileID), duration);
     }
     
-    private List<TiledWangSet> readWangSets(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
+    private List<TiledWangSet> readWangSets(String path, XMLStreamReader reader,
+            Map<Integer,TiledTile> idTiles, Map<PropertyData,Integer> propertyObjectsToResolve)
             throws XMLStreamException {
         getAttributeValues(reader, Collections.emptyMap());
         List<TiledWangSet> wangSets = new ArrayList<>();
@@ -1983,7 +1946,7 @@ public abstract class TiledReader {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
                         case "wangset":
-                            wangSets.add(readWangSet(reader, idTiles));
+                            wangSets.add(readWangSet(path, reader, idTiles, propertyObjectsToResolve));
                             break;
                         default:
                             ignoreUnexpectedTag(reader);
@@ -2001,8 +1964,8 @@ public abstract class TiledReader {
         return wangSets;
     }
     
-    private TiledWangSet readWangSet(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
-            throws XMLStreamException {
+    private TiledWangSet readWangSet(String path, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
+            Map<PropertyData,Integer> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, WANGSET_ATTRIBUTES);
         
         String name = attributeValues.get("name");
@@ -2010,31 +1973,30 @@ public abstract class TiledReader {
         int tileID = parseInt(reader, "tile", attributeValues.get("tile"));
         TiledTile tile = (tileID < 0 ? null : getTile(idTiles, tileID));
         
-        int bitsPerColor = 4;
-        int maxColorsPerType = (1 << bitsPerColor) - 1;
-        List<TiledWangColor> cornerColors = new ArrayList<>();
-        List<TiledWangColor> edgeColors = new ArrayList<>();
+        int maxColorsPerSet = 255;
+        int colorsPerWangTile = 8;
+        Map<String,Object> properties = null;
+        List<TiledWangColor> colors = new ArrayList<>();
         Map<TiledTile,String> wangTileData = new HashMap<>();
         OUTER: while (true) {
             next(reader);
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_ELEMENT:
                     switch (reader.getLocalName()) {
-                        case "wangcornercolor":
-                            if (cornerColors.size() == maxColorsPerType) {
-                                throw new XMLStreamException(describeReaderLocation(reader)
-                                        + ": <wangset> tag contains more than "
-                                        + maxColorsPerType + " <wangcornercolor> tags");
+                        case "properties":
+                            if (properties == null) {
+                                properties = readProperties(path, reader, null, propertyObjectsToResolve);
+                            } else {
+                                ignoreRedundantTag(reader);
                             }
-                            cornerColors.add(readWangColor(reader, idTiles));
                             break;
-                        case "wangedgecolor":
-                            if (edgeColors.size() == maxColorsPerType) {
+                        case "wangcolor":
+                            if (colors.size() == maxColorsPerSet) {
                                 throw new XMLStreamException(describeReaderLocation(reader)
                                         + ": <wangset> tag contains more than "
-                                        + maxColorsPerType + " <wangedgecolor> tags");
+                                        + maxColorsPerSet + " <wangcolor> tags");
                             }
-                            edgeColors.add(readWangColor(reader, idTiles));
+                            colors.add(readWangColor(path, reader, idTiles, propertyObjectsToResolve));
                             break;
                         case "wangtile":
                             readWangTile(reader, idTiles, wangTileData);
@@ -2056,34 +2018,39 @@ public abstract class TiledReader {
         Map<TiledTile,TiledWangTile> wangTiles = new HashMap<>();
         for (Map.Entry<TiledTile,String> entry : wangTileData.entrySet()) {
             TiledTile entryTile = entry.getKey();
-            String wangID = entry.getValue();
-            if (!(wangID.length() == 10) && (wangID.substring(0, 2).equals("0x"))) {
+            String[] wangIDIndices = entry.getValue().split(",");
+            if (wangIDIndices.length != colorsPerWangTile) {
                 throw new XMLStreamException(describeReaderLocation(reader)
                         + ": <wangtile> tag for tile ID " + entryTile.getID()
                         + " has invalid wangid attribute");
             }
-            TiledWangColor[] wangTileColors = new TiledWangColor[8];
-            for (int i = 0; i < wangTileColors.length; i++) {
-                int colorIndex = parseHexDigit(wangID.charAt(9 - i));
-                if (colorIndex == -1) {
+            TiledWangColor[] wangTileColors = new TiledWangColor[colorsPerWangTile];
+            for (int i = 0; i < colorsPerWangTile; i++) {
+                int colorIndex;
+                try {
+                    colorIndex = Integer.parseInt(wangIDIndices[i]);
+                } catch (NumberFormatException e) {
                     throw new XMLStreamException(describeReaderLocation(reader)
                             + ": <wangtile> tag for tile ID " + entryTile.getID()
                             + " has invalid wangid attribute");
                 }
-                if (colorIndex == 0) {
+                if (colorIndex < 0 || colorIndex >= colors.size() + 1) {
+                    throw new XMLStreamException(describeReaderLocation(reader)
+                            + ": <wangtile> tag for tile ID " + entryTile.getID()
+                            + " has invalid wangid attribute");
+                } else if (colorIndex == 0) {
                     continue;
                 }
-                List<TiledWangColor> colorList = ((i % 2) == 0 ? edgeColors : cornerColors);
-                wangTileColors[i] = colorList.get(colorIndex - 1);
+                wangTileColors[i] = colors.get(colorIndex - 1);
             }
             wangTiles.put(entryTile, new TiledWangTile(entryTile, wangTileColors));
         }
-        return new TiledWangSet(name, tile, cornerColors, edgeColors, wangTiles);
+        return new TiledWangSet(name, tile, colors, wangTiles, properties);
     }
     
-    private TiledWangColor readWangColor(XMLStreamReader reader, Map<Integer,TiledTile> idTiles)
-            throws XMLStreamException {
-        Map<String,String> attributeValues = getAttributeValues(reader, WANG_COLOR_ATTRIBUTES);
+    private TiledWangColor readWangColor(String path, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
+            Map<PropertyData,Integer> propertyObjectsToResolve) throws XMLStreamException {
+        Map<String,String> attributeValues = getAttributeValues(reader, WANGCOLOR_ATTRIBUTES);
         
         String name = attributeValues.get("name");
         Color color = parseColor(reader, "color", attributeValues.get("color"));
@@ -2093,8 +2060,33 @@ public abstract class TiledReader {
         
         float probability = parseFloat(reader, "probability", attributeValues.get("probability"));
         
-        finishTag(reader);
-        return new TiledWangColor(name, color, tile, probability);
+        Map<String,Object> properties = null;
+        OUTER: while (true) {
+            next(reader);
+            switch (reader.getEventType()) {
+                case XMLStreamConstants.START_ELEMENT:
+                    switch (reader.getLocalName()) {
+                        case "properties":
+                            if (properties == null) {
+                                properties = readProperties(path, reader, null, propertyObjectsToResolve);
+                            } else {
+                                ignoreRedundantTag(reader);
+                            }
+                            break;
+                        default:
+                            ignoreUnexpectedTag(reader);
+                            break;
+                    }
+                    break;
+                case XMLStreamConstants.END_ELEMENT:
+                    checkEndTagMatch(reader, "wangcolor");
+                    break OUTER;
+                default:
+                    ignoreUnexpectedEvent(reader);
+                    break;
+            }
+        }
+        return new TiledWangColor(name, color, tile, probability, properties);
     }
     
     private void readWangTile(XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
@@ -2141,6 +2133,8 @@ public abstract class TiledReader {
                 true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
+        float parallaxX = parseFloat(reader, "parallaxx", attributeValues.get("parallaxx"), true, 1);
+        float parallaxY = parseFloat(reader, "parallaxy", attributeValues.get("parallaxy"), true, 1);
         
         Map<String,Object> properties = null;
         int x1 = 0;
@@ -2224,12 +2218,12 @@ public abstract class TiledReader {
         TiledTileLayer layer;
         if (tiles != null && tiles.size() < ((double)layerArea)/4) {
             //Layer's tiles are sparse; represent it with a HashTileLayer
-            layer = new HashTileLayer(name, parent, opacity, visible, tintColor, offsetX, offsetY,
-                    x1, y1, x2, y2, tiles, flags);
+            layer = new HashTileLayer(name, parent, opacity, visible, tintColor,
+                    offsetX, offsetY, parallaxX, parallaxY, x1, y1, x2, y2, tiles, flags);
         } else {
             //Layer's tiles are dense; represent it with an ArrayTileLayer
-            layer = new ArrayTileLayer(name, parent, opacity, visible, tintColor, offsetX, offsetY,
-                    x1, y1, x2, y2, tiles, flags);
+            layer = new ArrayTileLayer(name, parent, opacity, visible, tintColor,
+                    offsetX, offsetY, parallaxX, parallaxY, x1, y1, x2, y2, tiles, flags);
         }
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
@@ -2546,6 +2540,8 @@ public abstract class TiledReader {
                 true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
+        float parallaxX = parseFloat(reader, "parallaxx", attributeValues.get("parallaxx"), true, 1);
+        float parallaxY = parseFloat(reader, "parallaxy", attributeValues.get("parallaxy"), true, 1);
         
         Map<String,Object> properties = null;
         List<TiledObject> objects = new ArrayList<>();
@@ -2579,8 +2575,8 @@ public abstract class TiledReader {
             }
         }
         
-        TiledObjectLayer layer = new TiledObjectLayer(
-                name, parent, opacity, visible, tintColor, offsetX, offsetY, color, objects);
+        TiledObjectLayer layer = new TiledObjectLayer(name, parent, opacity, visible, tintColor,
+                offsetX, offsetY, parallaxX, parallaxY, color, objects);
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
         return layer;
@@ -2946,6 +2942,8 @@ public abstract class TiledReader {
                 true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
+        float parallaxX = parseFloat(reader, "parallaxx", attributeValues.get("parallaxx"), true, 1);
+        float parallaxY = parseFloat(reader, "parallaxy", attributeValues.get("parallaxy"), true, 1);
         
         Map<String,Object> properties = null;
         TiledImage image = null;
@@ -2982,8 +2980,8 @@ public abstract class TiledReader {
             }
         }
         
-        TiledImageLayer layer = new TiledImageLayer(
-                name, parent, opacity, visible, tintColor, offsetX, offsetY, image);
+        TiledImageLayer layer = new TiledImageLayer(name, parent, opacity, visible, tintColor,
+                offsetX, offsetY, parallaxX, parallaxY, image);
         layer.setProperties(properties);
         nonGroupLayers.add(layer);
         return layer;
@@ -3008,9 +3006,11 @@ public abstract class TiledReader {
                 true, DEFAULT_TINT_COLOR);
         float offsetX = parseFloat(reader, "offsetx", attributeValues.get("offsetx"), true, 0);
         float offsetY = parseFloat(reader, "offsety", attributeValues.get("offsety"), true, 0);
+        float parallaxX = parseFloat(reader, "parallaxx", attributeValues.get("parallaxx"), true, 1);
+        float parallaxY = parseFloat(reader, "parallaxy", attributeValues.get("parallaxy"), true, 1);
         
-        TiledGroupLayer group = new TiledGroupLayer(
-                name, parent, opacity, visible, tintColor, offsetX, offsetY);
+        TiledGroupLayer group = new TiledGroupLayer(name, parent, opacity, visible, tintColor,
+                offsetX, offsetY, parallaxX, parallaxY);
         
         Map<String,Object> properties = null;
         OUTER: while (true) {

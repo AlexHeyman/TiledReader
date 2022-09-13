@@ -9,24 +9,23 @@ import java.util.Map;
  * to a &lt;wangset&gt; tag in a Tiled XML file.</p>
  * @author Alex Heyman
  */
-public class TiledWangSet {
+public class TiledWangSet implements TiledCustomizable {
     
     private final String name;
     private final TiledTile tile;
-    private final List<TiledWangColor> cornerColors;
-    private final List<TiledWangColor> edgeColors;
+    private final List<TiledWangColor> colors;
     private final Map<TiledTile,TiledWangTile> wangTiles;
+    private final Map<String,Object> properties;
     
-    TiledWangSet(String name, TiledTile tile, List<TiledWangColor> cornerColors,
-            List<TiledWangColor> edgeColors, Map<TiledTile,TiledWangTile> wangTiles) {
+    TiledWangSet(String name, TiledTile tile, List<TiledWangColor> colors,
+            Map<TiledTile,TiledWangTile> wangTiles, Map<String,Object> properties) {
         this.name = name;
         this.tile = tile;
-        this.cornerColors = (cornerColors == null ?
-                Collections.emptyList() : Collections.unmodifiableList(cornerColors));
-        this.edgeColors = (edgeColors == null ?
-                Collections.emptyList() : Collections.unmodifiableList(edgeColors));
+        this.colors = (colors == null ? Collections.emptyList() : Collections.unmodifiableList(colors));
         this.wangTiles = (wangTiles == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(wangTiles));
+        this.properties = (properties == null ?
+                Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
     
     /**
@@ -47,19 +46,11 @@ public class TiledWangSet {
     }
     
     /**
-     * Returns an unmodifiable List view of this Wang set's corner colors.
-     * @return This Wang set's corner colors
+     * Returns an unmodifiable List view of this Wang set's colors.
+     * @return This Wang set's colors
      */
-    public final List<TiledWangColor> getCornerColors() {
-        return cornerColors;
-    }
-    
-    /**
-     * Returns an unmodifiable List view of this Wang set's edge colors.
-     * @return This Wang set's edge colors
-     */
-    public final List<TiledWangColor> getEdgeColors() {
-        return edgeColors;
+    public final List<TiledWangColor> getColors() {
+        return colors;
     }
     
     /**
@@ -70,6 +61,16 @@ public class TiledWangSet {
      */
     public final Map<TiledTile,TiledWangTile> getWangTiles() {
         return wangTiles;
+    }
+    
+    @Override
+    public final Map<String,Object> getProperties() {
+        return properties;
+    }
+    
+    @Override
+    public final Object getProperty(String name) {
+        return properties.get(name);
     }
     
 }

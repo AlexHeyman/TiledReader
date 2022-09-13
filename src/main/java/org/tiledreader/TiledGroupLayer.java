@@ -15,8 +15,9 @@ public class TiledGroupLayer extends TiledLayer {
     private List<TiledLayer> children = new ArrayList<>();
     
     TiledGroupLayer(String name, TiledGroupLayer parent, float relOpacity, boolean relVisible,
-            Color relTintColor, float relOffsetX, float relOffsetY) {
-        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY);
+            Color relTintColor, float relOffsetX, float relOffsetY, float relParallaxX, float relParallaxY) {
+        super(name, parent, relOpacity, relVisible, relTintColor, relOffsetX, relOffsetY,
+                relParallaxX, relParallaxY);
     }
     
     final void addChild(TiledLayer child) {

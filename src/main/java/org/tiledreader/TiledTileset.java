@@ -38,14 +38,14 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     private final GridOrientation gridOrientation;
     private final int gridWidth, gridHeight;
     private final TiledImage image;
-    private final List<TiledTerrainType> terrainTypes;
     private final List<TiledWangSet> wangSets;
+    private final boolean hFlipAllowed, vFlipAllowed, rotateAllowed, preferUntransformed;
     private final Map<String,Object> properties;
     
     TiledTileset(TiledReader reader, String path, String name, int tileWidth, int tileHeight, int spacing,
             int margin, SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
             ObjectAlignment objectAlignment, GridOrientation gridOrientation, int gridWidth, int gridHeight,
-            TiledImage image, List<TiledTerrainType> terrainTypes, List<TiledWangSet> wangSets,
+            TiledImage image, List<TiledWangSet> wangSets, boolean[] transformations,
             Map<String,Object> properties) {
         super(reader, path);
         this.name = name;
@@ -84,10 +84,19 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
         this.gridWidth = gridWidth;
         this.gridHeight = gridHeight;
         this.image = image;
-        this.terrainTypes = (terrainTypes == null ?
-                Collections.emptyList() : Collections.unmodifiableList(terrainTypes));
         this.wangSets = (wangSets == null ?
                 Collections.emptyList() : Collections.unmodifiableList(wangSets));
+        if (transformations == null) {
+            hFlipAllowed = false;
+            vFlipAllowed = false;
+            rotateAllowed = false;
+            preferUntransformed = false;
+        } else {
+            hFlipAllowed = transformations[0];
+            vFlipAllowed = transformations[1];
+            rotateAllowed = transformations[2];
+            preferUntransformed = transformations[3];
+        }
         this.properties = (properties == null ?
                 Collections.emptyMap() : Collections.unmodifiableMap(properties));
     }
@@ -263,19 +272,45 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     }
     
     /**
-     * Returns an unmodifiable List view of this tileset's terrain types.
-     * @return This tileset's terrain types
-     */
-    public final List<TiledTerrainType> getTerrainTypes() {
-        return terrainTypes;
-    }
-    
-    /**
      * Returns an unmodifiable List view of this tileset's Wang sets.
      * @return This tileset's Wang sets
      */
     public final List<TiledWangSet> getWangSets() {
         return wangSets;
+    }
+    
+    /**
+     * Returns whether this tileset's tiles can be flipped horizontally.
+     * @return Whether this tileset's tiles can be flipped horizontally
+     */
+    public final boolean getHFlipAllowed() {
+        return hFlipAllowed;
+    }
+    
+    /**
+     * Returns whether this tileset's tiles can be flipped vertically.
+     * @return Whether this tileset's tiles can be flipped vertically
+     */
+    public final boolean getVFlipAllowed() {
+        return vFlipAllowed;
+    }
+    
+    /**
+     * Returns whether this tileset's tiles can be rotated in 90-degree
+     * increments.
+     * @return Whether this tileset's tiles can be rotated in 90-degree
+     * increments
+     */
+    public final boolean getRotateAllowed() {
+        return rotateAllowed;
+    }
+    
+    /**
+     * Returns whether untransformed tiles are preferred from this tileset.
+     * @return Whether untransformed tiles are preferred from this tileset
+     */
+    public final boolean getPreferUntransformed() {
+        return preferUntransformed;
     }
     
     @Override
