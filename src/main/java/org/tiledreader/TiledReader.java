@@ -227,7 +227,6 @@ public abstract class TiledReader {
     static {
         TILESET_TILE_ATTRIBUTES.put("id", true);
         TILESET_TILE_ATTRIBUTES.put("type", false);
-        TILESET_TILE_ATTRIBUTES.put("terrain", false);
         TILESET_TILE_ATTRIBUTES.put("probability", false);
     }
     
@@ -1493,7 +1492,6 @@ public abstract class TiledReader {
         TiledImage image = null;
         SortedMap<Integer,TiledTile> idTiles = new TreeMap<>();
         Set<Integer> readTileIDs = new HashSet<>();
-        Map<Integer,Integer[]> tileTerrainTypes = new HashMap<>();
         List<TiledWangSet> wangSets = null;
         boolean[] transformations = null;
         OUTER: while (true) {
@@ -1537,8 +1535,7 @@ public abstract class TiledReader {
                             }
                             break;
                         case "tile":
-                            readTilesetTile(path, reader, idTiles, readTileIDs, tileTerrainTypes,
-                                    propertyObjectsToResolve);
+                            readTilesetTile(path, reader, idTiles, readTileIDs, propertyObjectsToResolve);
                             break;
                         case "wangsets":
                             if (wangSets == null) {
@@ -1772,8 +1769,8 @@ public abstract class TiledReader {
     }
     
     private void readTilesetTile(String path, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Set<Integer> readTileIDs, Map<Integer,Integer[]> tileTerrainTypes,
-            Map<PropertyData,Integer> propertyObjectsToResolve) throws XMLStreamException {
+            Set<Integer> readTileIDs, Map<PropertyData,Integer> propertyObjectsToResolve)
+            throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TILESET_TILE_ATTRIBUTES);
         
         String idStr = attributeValues.get("id");
@@ -1789,40 +1786,6 @@ public abstract class TiledReader {
         
         tile.type = attributeValues.get("type");
         tile.typeInfo = (objectTypes == null ? null : objectTypes.get(tile.type));
-        
-        String terrain = attributeValues.get("terrain");
-        Integer[] terrainTypes = new Integer[4];
-        tileTerrainTypes.put(id, terrainTypes);
-        if (terrain != null) {
-            int cornerIndex = 0;
-            int startOfSubstring = 0;
-            for (int i = 0; i <= terrain.length(); i++) {
-                if (i == terrain.length() || terrain.charAt(i) == ',') {
-                    if (cornerIndex == 4) {
-                        throw new XMLStreamException(describeReaderLocation(reader)
-                                + ": Value of <tile> tag's terrain attribute (" + terrain
-                                + ") contains more than 4 comma-separated values");
-                    }
-                    String terrainType = terrain.substring(startOfSubstring, i).trim();
-                    if (!terrainType.isEmpty()) {
-                        try {
-                            terrainTypes[cornerIndex] = Integer.parseInt(terrainType);
-                        } catch (NumberFormatException e) {
-                            throw new XMLStreamException(describeReaderLocation(reader)
-                                    + ": Value of <tile> tag's terrain attribute (" + terrain
-                                    + ") contains a non-integer value");
-                        }
-                    }
-                    cornerIndex++;
-                    startOfSubstring = i + 1;
-                }
-            }
-            if (cornerIndex != 4) {
-                throw new XMLStreamException(describeReaderLocation(reader)
-                        + ": Value of <tile> tag's terrain attribute (" + terrain
-                        + ") contains fewer than 4 comma-separated values");
-            }
-        }
         
         String probabilityStr = attributeValues.get("probability");
         if (probabilityStr != null) {
