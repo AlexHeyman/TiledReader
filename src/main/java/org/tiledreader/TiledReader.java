@@ -66,14 +66,13 @@ import javax.xml.stream.XMLStreamReader;
  * other ways in custom subclasses.</p>
  * 
  * <p>The TiledReader library does not support image data embedded directly in
- * TMX/TSX files. As of Tiled version 1.9.1, however, it is not possible to
+ * TMX/TSX files. As of Tiled version 1.9.2, however, it is not possible to
  * embed image data in files using the Tiled editor.</p>
  * 
  * <p>The TiledReader library also ignores information in Tiled files pertaining
- * to deprecated or unsupported features of Tiled. These include the x and y
- * attributes of tile layers, object layers, and image layers (not to be
- * confused with the rendering x and y offsets, which are supported), as well as
- * the width and height attributes of object layers.</p>
+ * to deprecated or unsupported features of Tiled. This information is treated
+ * as unexpected XML content and logged with non-fatal warnings (except for
+ * images that do not reference external files, which throw Exceptions).</p>
  * 
  * <p>For details on the structure and content of Tiled files, see
  * <a href="https://doc.mapeditor.org/en/stable/reference/tmx-map-format/">the
