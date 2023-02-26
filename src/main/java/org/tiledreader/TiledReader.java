@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
@@ -88,17 +86,17 @@ public abstract class TiledReader {
     
     /**
      * The version number of Tiled that this version of TiledReader was designed
-     * for. Currently 1.5.
+     * for. Currently 1.7.
      */
-    public static final String TILED_VERSION = "1.5";
+    public static final String TILED_VERSION = "1.7";
     
     /**
      * The version of the TMX file format that this version of TiledReader was
-     * designed for. Currently 1.5. This is what matters most for file
+     * designed for. Currently 1.7. This is what matters most for file
      * compatibility, and TiledReader will produce a warning if it reads a file
      * with a TMX format version that does not match this constant.
      */
-    public static final String TMX_VERSION = "1.5";
+    public static final String TMX_VERSION = "1.7";
     
     private static Map<Integer,String> EVENT_TYPE_NAMES = null;
     
@@ -1489,8 +1487,9 @@ public abstract class TiledReader {
         
         Map<String,Object> properties = null;
         TiledImage image = null;
-        SortedMap<Integer,TiledTile> idTiles = new TreeMap<>();
         Set<Integer> readTileIDs = new HashSet<>();
+        Map<Integer,TiledTile> idTiles = new HashMap<>();
+        List<TiledTile> tilesInReadOrder = new ArrayList<>();
         List<TiledWangSet> wangSets = null;
         boolean[] transformations = null;
         OUTER: while (true) {
@@ -1534,7 +1533,8 @@ public abstract class TiledReader {
                             }
                             break;
                         case "tile":
-                            readTilesetTile(path, reader, idTiles, readTileIDs, propertyObjectsToResolve);
+                            readTilesetTile(path, reader, readTileIDs, idTiles, tilesInReadOrder,
+                                    propertyObjectsToResolve);
                             break;
                         case "wangsets":
                             if (wangSets == null) {
@@ -1564,6 +1564,12 @@ public abstract class TiledReader {
             }
         }
         
+        if (tilesInReadOrder.size() > tileCount) {
+            throw new XMLStreamException(describeReaderLocation(reader)
+                    + ": <tileset> tag contains more <tile> tags than the value of its tilecount attribute ("
+                    + tileCount + ")");
+        }
+        
         if (image == null) {
             //Tileset is (seemingly) an image collection tileset
             for (Map.Entry<Integer,TiledTile> entry : idTiles.entrySet()) {
@@ -1575,45 +1581,64 @@ public abstract class TiledReader {
                             + " tags (e.g. ID " + id + ") contain <image> tags");
                 }
             }
+            if (tilesInReadOrder.size() < tileCount) {
+                throw new XMLStreamException(startLocation + ": Image collection tileset contains fewer"
+                        + " <tile> tags than the value of its tilecount attribute (" + tileCount + ")");
+            }
         } else {
             //Tileset is (seemingly) a single-image tileset
             if (tileCount > 0) {
-                if (columns == 0) {
-                    throw new XMLStreamException(startLocation + ": <tileset> tag's tilecount attribute is"
-                            + " positive, but its columns attribute is 0");
-                }
-                if ((tileCount % columns) != 0) {
-                    int newTileCount = tileCount - (tileCount % columns) + columns;
-                    LOGGER.log(Level.WARNING, "{0}: Tileset''s tile count ({1}) does not divide evenly into"
-                            + " its number of columns ({2}); increasing tile count to {3}",
-                            new Object[]{describeReaderLocation(reader), tileCount, columns, newTileCount});
-                    tileCount = newTileCount;
-                }
                 for (Map.Entry<Integer,TiledTile> entry : idTiles.entrySet()) {
                     int id = entry.getKey();
-                    if (id >= tileCount) {
-                        throw new XMLStreamException(startLocation + ": <tileset> tag contains an <image>"
-                                + " tag, indicating that it's a single-image tileset, but it contains a"
-                                + " <tile> tag with ID " + id + ", which is out of bounds for its tile count"
-                                        + " of " + tileCount);
-                    }
                     TiledTile tile = entry.getValue();
                     if (tile.getImage() != null) {
                         throw new XMLStreamException(startLocation + ": <tileset> tag contains an <image>"
                                 + " tag, indicating that it's a single-image tileset, but it contains a"
                                 + " <tile> tag (with ID " + id + ") that also contains an <image> tag");
                     }
-                }
-                for (int i = 0; i < tileCount; i++) {
-                    if (idTiles.get(i) == null) {
-                        idTiles.put(i, new TiledTile(i));
+                    if (id >= tileCount) {
+                        throw new XMLStreamException(startLocation + ": <tileset> tag contains an <image>"
+                                + " tag, indicating that it's a single-image tileset, but it contains a"
+                                + " <tile> tag with ID " + id + ", which is out of bounds for its tile count"
+                                        + " of " + tileCount);
                     }
+                }
+                if (columns == 0) {
+                    throw new XMLStreamException(startLocation + ": Single-image tileset's tile count is"
+                            + " positive, but its number of columns is 0");
+                }
+                if ((tileCount % columns) != 0) {
+                    //We force single-image tilesets to be rectangular because the Tiled editor does too
+                    int newTileCount = tileCount - (tileCount % columns) + columns;
+                    LOGGER.log(Level.WARNING, "{0}: Single-image tileset's tile count ({1}) does not divide"
+                            + " evenly into its number of columns ({2}); increasing tile count to {3}",
+                            new Object[]{startLocation, tileCount, columns, newTileCount});
+                    tileCount = newTileCount;
                 }
             }
         }
         
-        TiledTileset tileset = new TiledTileset(this, (pathIsTSX ? path : null), name, tileWidth,
-                tileHeight, spacing, margin, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
+        List<TiledTile> tilesInDisplayOrder;
+        if (tilesInReadOrder.size() == tileCount) {
+            tilesInDisplayOrder = tilesInReadOrder;
+        } else {
+            //If a tileset doesn't have a <tile> tag for every tile, we assume the tiles are displayed in
+            //order of increasing ID. That's what the Tiled editor seems to assume.
+            //Thanks to previous checks, we know here that the tileset is a single-image tileset and that all
+            //of its <tile> tags have IDs between 0 and tileCount - 1 inclusive.
+            tilesInDisplayOrder = new ArrayList<>();
+            for (int i = 0; i < tileCount; i++) {
+                TiledTile tile = idTiles.get(i);
+                if (tile == null) {
+                    tile = new TiledTile(i);
+                    idTiles.put(i, tile);
+                }
+                tilesInDisplayOrder.add(tile);
+            }
+        }
+        
+        TiledTileset tileset = new TiledTileset(this, (pathIsTSX ? path : null), name, tileWidth, tileHeight,
+                spacing, margin, tilesInDisplayOrder, idTiles, columns, tileOffsetX, tileOffsetY, alignment,
                 gridOrientation, gridWidth, gridHeight, image, wangSets, transformations, properties);
         for (TiledTile tile : idTiles.values()) {
             tile.tileset = tileset;
@@ -1767,9 +1792,9 @@ public abstract class TiledReader {
         
     }
     
-    private void readTilesetTile(String path, XMLStreamReader reader, Map<Integer,TiledTile> idTiles,
-            Set<Integer> readTileIDs, Map<PropertyData,Integer> propertyObjectsToResolve)
-            throws XMLStreamException {
+    private void readTilesetTile(String path, XMLStreamReader reader, Set<Integer> readTileIDs,
+            Map<Integer,TiledTile> idTiles, List<TiledTile> tilesInReadOrder,
+            Map<PropertyData,Integer> propertyObjectsToResolve) throws XMLStreamException {
         Map<String,String> attributeValues = getAttributeValues(reader, TILESET_TILE_ATTRIBUTES);
         
         String idStr = attributeValues.get("id");
@@ -1782,6 +1807,7 @@ public abstract class TiledReader {
             return;
         }
         TiledTile tile = getTile(idTiles, id);
+        tilesInReadOrder.add(tile);
         
         tile.type = attributeValues.get("type");
         tile.typeInfo = (objectTypes == null ? null : objectTypes.get(tile.type));

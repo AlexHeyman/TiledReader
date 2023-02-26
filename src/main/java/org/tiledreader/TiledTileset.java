@@ -1,10 +1,8 @@
 package org.tiledreader;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
 
 /**
  * <p>A TiledTileset represents a tileset. It corresponds to a &lt;tileset&gt;
@@ -30,8 +28,8 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     
     private final String name;
     private final int tileWidth, tileHeight, spacing, margin;
-    private final SortedMap<Integer,TiledTile> idTiles;
-    private final TiledTile[][] locationTiles;
+    private final List<TiledTile> tilesInDisplayOrder;
+    private final Map<Integer,TiledTile> idTiles;
     private final int width, height;
     private final int tileOffsetX, tileOffsetY;
     private final ObjectAlignment objectAlignment;
@@ -43,40 +41,20 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     private final Map<String,Object> properties;
     
     TiledTileset(TiledReader reader, String path, String name, int tileWidth, int tileHeight, int spacing,
-            int margin, SortedMap<Integer,TiledTile> idTiles, int columns, int tileOffsetX, int tileOffsetY,
-            ObjectAlignment objectAlignment, GridOrientation gridOrientation, int gridWidth, int gridHeight,
-            TiledImage image, List<TiledWangSet> wangSets, boolean[] transformations,
-            Map<String,Object> properties) {
+            int margin, List<TiledTile> tilesInDisplayOrder, Map<Integer,TiledTile> idTiles, int columns,
+            int tileOffsetX, int tileOffsetY, ObjectAlignment objectAlignment,
+            GridOrientation gridOrientation, int gridWidth, int gridHeight, TiledImage image,
+            List<TiledWangSet> wangSets, boolean[] transformations, Map<String,Object> properties) {
         super(reader, path);
         this.name = name;
         this.tileWidth = tileWidth;
         this.tileHeight = tileHeight;
         this.spacing = spacing;
         this.margin = margin;
-        this.idTiles = Collections.unmodifiableSortedMap(idTiles);
-        if (image == null) {
-            //Image collection tileset
-            width = -1;
-            height = -1;
-            locationTiles = null;
-        } else {
-            //Single-image tileset
-            width = columns;
-            height = idTiles.size() / columns;
-            locationTiles = new TiledTile[width][height];
-            int x = 0;
-            int y = 0;
-            for (TiledTile tile : idTiles.values()) {
-                tile.tilesetX = x;
-                tile.tilesetY = y;
-                locationTiles[x][y] = tile;
-                x++;
-                if (x == width) {
-                    x = 0;
-                    y++;
-                }
-            }
-        }
+        this.tilesInDisplayOrder = Collections.unmodifiableList(tilesInDisplayOrder);
+        this.idTiles = Collections.unmodifiableMap(idTiles);
+        width = columns;
+        height = (int)Math.ceil(((double)tilesInDisplayOrder.size()) / columns);
         this.tileOffsetX = tileOffsetX;
         this.tileOffsetY = tileOffsetY;
         this.objectAlignment = objectAlignment;
@@ -146,13 +124,13 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     }
     
     /**
-     * Returns an unmodifiable Collection view of this tileset's tiles. The
-     * Collection's iterator will return the tiles in order from lowest to
-     * highest local ID.
+     * Returns an unmodifiable List view of this tileset's tiles. The tiles are
+     * listed in rows from left to right and top to bottom as seen in the Tiled
+     * editor.
      * @return This tileset's tiles
      */
-    public final Collection<TiledTile> getTiles() {
-        return idTiles.values();
+    public final List<TiledTile> getTiles() {
+        return tilesInDisplayOrder;
     }
     
     /**
@@ -166,8 +144,9 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     }
     
     /**
-     * Returns this tileset's width in tiles, or -1 if this tileset is an image
-     * collection tileset.
+     * Returns this tileset's width in tiles, or equivalently its number of
+     * columns. This is the width seen in the Tiled editor when "Dynamically
+     * Wrap Tiles" is off.
      * @return This tileset's width in tiles
      */
     public final int getWidth() {
@@ -175,8 +154,8 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     }
     
     /**
-     * Returns this tileset's height in tiles, or -1 if this tileset is an image
-     * collection tileset.
+     * Returns this tileset's height in tiles. This is the height seen in the
+     * Tiled editor when "Dynamically Wrap Tiles" is off.
      * @return This tileset's height in tiles
      */
     public final int getHeight() {
@@ -184,28 +163,23 @@ public class TiledTileset extends TiledResource implements TiledCustomizable {
     }
     
     /**
-     * Returns the tile at the specified location in this tileset, if this
-     * tileset is a single-image tileset.
+     * Returns the tile at the specified location in this tileset, or null if
+     * there is none. These are the locations seen in the Tiled editor when
+     * "Dynamically Wrap Tiles" is off. Note that if an image collection
+     * tileset's number of tiles is not evenly divisible by its number of
+     * columns, its bottommost row will not extend as far right as the others.
      * @param x The x-coordinate in tiles of the location. x-coordinates range
      * from 0 to getWidth() - 1, increasing from left to right.
      * @param y The y-coordinate in tiles of the location. y-coordinates range
      * from 0 to getHeight() - 1, increasing from top to bottom.
      * @return The tile at the specified location
-     * @throws UnsupportedOperationException if this tileset is an image
-     * collection tileset
-     * @throws IndexOutOfBoundsException if the location is out of this
-     * tileset's bounds
      */
     public final TiledTile getTile(int x, int y) {
-        if (locationTiles == null) {
-            throw new UnsupportedOperationException("Attempted to retrieve a TiledTile at a specific"
-                    + " location from an image collection TiledTileset");
+        int displayOrderIndex = y * width + x;
+        if (displayOrderIndex >= 0 && displayOrderIndex < tilesInDisplayOrder.size()) {
+            return tilesInDisplayOrder.get(displayOrderIndex);
         }
-        if (x < 0 || x >= width || y < 0 || y >= height) {
-            throw new IndexOutOfBoundsException("Attempted to retrieve a TiledTile from a TiledTileset at"
-                    + " invalid coordinates (" + x + ", " + y + ")");
-        }
-        return locationTiles[x][y];
+        return null;
     }
     
     /**
