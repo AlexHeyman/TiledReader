@@ -10,7 +10,7 @@ package org.tiledreader;
  * file.</p>
  * @author Alex Heyman
  */
-public class TiledResource {
+public abstract class TiledResource {
     
     private final TiledReader reader;
     private final String path;
